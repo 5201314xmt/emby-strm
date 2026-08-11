@@ -50,26 +50,45 @@ export default function MissingPage() {
   const [selectedSource, setSelectedSource] = useState<string>(
     searchParams.get('status') || 'partial'
   )
+  const [sortBy, setSortBy] = useState<string>('missing_count')
   const [searchText, setSearchText] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [filterCounts, setFilterCounts] = useState<Record<string, number>>({})
   const pageSize = 50
 
   const fetchShows = useCallback(async () => {
     setLoading(true)
     try {
-      const params: any = { page, page_size: pageSize }
+      const params: any = { page, page_size: pageSize, sort: sortBy }
       if (selectedSource && selectedSource !== 'all') params.status = selectedSource
       if (searchText) params.search = searchText
       const res = await api.get('/shows', { params })
       if (res.data.success) {
         setShows(res.data.data.items)
         setTotal(res.data.data.total)
+        // 本地计算各状态数量（用于角标）
+        const counts: Record<string, number> = { all: res.data.data.total }
+        const items = res.data.data.items
+        let partial = 0, full_missing = 0, complete = 0, ignored = 0, error = 0
+        items.forEach((show: any) => {
+          show.seasons.forEach((s: any) => {
+            if (s.status === 'partial') partial++
+            else if (s.status === 'full_missing') full_missing++
+            else if (s.status === 'complete') complete++
+            if (s.ignored || show.ignore_entire) ignored++
+          })
+          if (show.status === 'error') error++
+        })
+        counts.partial = partial; counts.full_missing = full_missing
+        counts.complete = complete; counts.ignored = ignored; counts.error = error
+        setFilterCounts(counts)
       }
     } catch (e) {
       console.error('获取列表失败:', e)
     }
     setLoading(false)
-  }, [page, selectedSource, searchText])
+  }, [page, selectedSource, searchText, sortBy])
 
   useEffect(() => { fetchShows() }, [fetchShows])
 
@@ -173,36 +192,60 @@ export default function MissingPage() {
     { value: 'error', label: '异常' },
   ]
 
+  // 搜索防抖
+  useEffect(() => {
+    const timer = setTimeout(() => { setSearchText(searchInput); setPage(1) }, 300)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
   return (
     <div className="space-y-4">
       {/* ========== 筛选栏 ========== */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex rounded-md border border-border">
-          {statusOptions.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => { setSelectedSource(opt.value); setPage(1) }}
-              className={cn(
-                'border-r border-border px-3 py-1.5 text-xs last:border-r-0 transition-colors',
-                selectedSource === opt.value
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
+          {statusOptions.map((opt) => {
+            const count = filterCounts[opt.value]
+            return (
+              <button
+                key={opt.value}
+                onClick={() => { setSelectedSource(opt.value); setPage(1) }}
+                className={cn(
+                  'border-r border-border px-3 py-1.5 text-xs last:border-r-0 transition-colors',
+                  selectedSource === opt.value
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {opt.label}
+                {count !== undefined && (
+                  <span className={cn('ml-1 opacity-60', selectedSource === opt.value ? 'text-primary' : '')}>({count})</span>
+                )}
+              </button>
+            )
+          })}
         </div>
+        {/* 排序 */}
+        <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1) }}
+          className="rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none">
+          <option value="missing_count">缺集数 ↓</option>
+          <option value="name">剧名 A→Z</option>
+        </select>
+        {/* 搜索框 + 清除 */}
         <div className="relative flex-1 max-w-xs">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && fetchShows()}
-            placeholder="搜索剧名..."
-            className="w-full rounded-md border border-border bg-background py-1.5 pl-8 pr-3 text-xs text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="搜索剧名或 TMDB ID..."
+            className="w-full rounded-md border border-border bg-background py-1.5 pl-8 pr-7 text-xs text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
           />
+          {searchInput && (
+            <button onClick={() => { setSearchInput(''); setSearchText(''); setPage(1) }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <span className="text-xs">✕</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -273,8 +316,9 @@ export default function MissingPage() {
                       return (
                         <React.Fragment key={key}>
                           <tr
+                            onClick={() => toggleExpand(key)}
                             className={cn(
-                              'border-b border-border transition-colors hover:bg-accent/30',
+                              'border-b border-border transition-colors hover:bg-accent/30 cursor-pointer',
                               season.ignored && 'opacity-50'
                             )}
                           >

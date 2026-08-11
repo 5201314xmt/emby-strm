@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Trash2, Copy, Search } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Trash2, Copy, Search, Pause, Play } from 'lucide-react'
 import api from '@/lib/api'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -27,6 +27,8 @@ export default function LogsPage() {
   const [category, setCategory] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [autoRefresh, setAutoRefresh] = useState(false)
+  const refreshRef = useRef<number>()
   const pageSize = 50
   const totalPages = Math.ceil(total / pageSize)
 
@@ -57,6 +59,14 @@ export default function LogsPage() {
     fetch(1, false)
   }, [fetch])
 
+  // 自动刷新
+  useEffect(() => {
+    if (autoRefresh) {
+      refreshRef.current = window.setInterval(() => { fetch(1, false); setPage(1) }, 5000)
+    }
+    return () => { if (refreshRef.current) clearInterval(refreshRef.current) }
+  }, [autoRefresh, fetch])
+
   const handleClear = async () => {
     if (!confirm('确定清空所有日志吗？')) return
     try {
@@ -71,7 +81,8 @@ export default function LogsPage() {
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text)
-    toast.success('已复制')
+      .then(() => toast.success('已复制'))
+      .catch(() => toast.error('复制失败'))
   }
 
   const levels = ['', 'INFO', 'SUCCESS', 'WARN', 'ERROR']
@@ -113,6 +124,12 @@ export default function LogsPage() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          <button onClick={() => setAutoRefresh(!autoRefresh)}
+            className={`flex items-center gap-1 rounded border px-2 py-1 text-xs transition-colors ${
+              autoRefresh ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
+            {autoRefresh ? <Pause size={12} /> : <Play size={12} />}
+            {autoRefresh ? '暂停' : '实时'}
+          </button>
           <span className="text-xs text-muted-foreground">共 {total} 条</span>
           <button
             onClick={handleClear}

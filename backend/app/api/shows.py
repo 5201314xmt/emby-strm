@@ -81,9 +81,12 @@ async def list_shows(
     elif status == "error":
         conditions.append(Show.status == "error")
 
-    # 搜索
+    # 搜索（支持剧名或 TMDB ID）
     if search:
-        conditions.append(Show.name.ilike(f"%{search}%"))
+        if search.isdigit():
+            conditions.append(Show.tmdb_id == int(search))
+        else:
+            conditions.append(Show.name.ilike(f"%{search}%"))
 
     if conditions:
         query = query.where(and_(*conditions))
@@ -95,6 +98,17 @@ async def list_shows(
     # ---- 排序 ----
     if sort == "name":
         query = query.order_by(Show.name.asc())
+    elif sort == "missing_count":
+        # 子查询：每部剧的总缺集数，降序（最缺的排最前）
+        from sqlalchemy import text as _t
+        missing_subq = (
+            select(func.coalesce(func.sum(
+                func.json_array_length(Season.missing_episodes)), 0))
+            .where(Season.tmdb_id == Show.tmdb_id)
+            .correlate(Show)
+            .scalar_subquery()
+        )
+        query = query.order_by(missing_subq.desc(), Show.updated_at.desc())
     else:
         query = query.order_by(Show.updated_at.desc())
 
