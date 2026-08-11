@@ -208,7 +208,7 @@ async def list_shows(
     })
 
 
-@router.get("/{tmdb_id}")
+@router.get("/{tmdb_id:int}")
 async def get_show_detail(
     tmdb_id: int,
     db: AsyncSession = Depends(get_db),
@@ -265,7 +265,7 @@ async def get_show_detail(
     })
 
 
-@router.post("/{tmdb_id}/subscribe")
+@router.post("/{tmdb_id:int}/subscribe")
 async def subscribe_season(
     tmdb_id: int,
     request: Request,
@@ -323,7 +323,7 @@ async def subscribe_season(
     return make_response(True, message=f"订阅成功：《{name}》第 {season} 季")
 
 
-@router.post("/{tmdb_id}/ignore")
+@router.post("/{tmdb_id:int}/ignore")
 async def ignore_season(
     tmdb_id: int,
     request: Request,
@@ -356,7 +356,7 @@ async def ignore_season(
     return make_response(True, message=f"已忽略{scope}")
 
 
-@router.delete("/{tmdb_id}/ignore")
+@router.delete("/{tmdb_id:int}/ignore")
 async def unignore_season(
     tmdb_id: int,
     request: Request,
