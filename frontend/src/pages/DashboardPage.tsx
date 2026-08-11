@@ -18,7 +18,10 @@ import api from '@/lib/api'
  * 6 个 KPI 卡片 + 当前扫描状态 + 历史记录
  */
 export default function DashboardPage() {
-  const { dashboard, loading, fetchDashboard, updateScanProgress } = useScanStore()
+  const dashboard = useScanStore((s) => s.dashboard)
+  const loading = useScanStore((s) => s.loading)
+  const fetchDashboard = useScanStore((s) => s.fetchDashboard)
+  const updateScanProgress = useScanStore((s) => s.updateScanProgress)
   const navigate = useNavigate()
 
   // 首次加载

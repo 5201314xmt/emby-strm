@@ -129,20 +129,69 @@ async def test_connection(
     mp_url = (body or {}).get("mp_url", app_settings.mp_url)
     mp_token = (body or {}).get("mp_token", app_settings.mp_token)
 
-    # 1. 测试 MoviePilot
+    # 1. 测试 MoviePilot（含版本检测 + 订阅 API 测试）
     if mp_url and mp_token:
         try:
             import httpx
             async with httpx.AsyncClient(timeout=10) as client:
+                # 版本检测
                 resp = await client.get(
                     f"{mp_url.rstrip('/')}/api/v1/",
                     headers={"Authorization": mp_token},
                 )
                 if resp.status_code == 200:
                     data = resp.json()
-                    version = data.get("version", "未知")
-                    results.append({"name": "MoviePilot", "ok": True,
-                                   "detail": f"连接成功（版本：{version}）"})
+                    version_str = data.get("version", "未知")
+                    # 解析版本号判断大版本
+                    is_v3 = False
+                    try:
+                        parts = version_str.lstrip("v").split(".")
+                        major = int(parts[0]) if parts else 0
+                        is_v3 = major >= 3
+                    except Exception:
+                        pass
+
+                    # 检测 TMDB 代理可用性
+                    tmdb_ok = False
+                    try:
+                        tr = await client.get(
+                            f"{mp_url.rstrip('/')}/api/v1/tmdb/seasons/1399",
+                            headers={"Authorization": mp_token},
+                        )
+                        tmdb_ok = tr.status_code == 200
+                    except Exception:
+                        pass
+
+                    # 检测订阅 API
+                    sub_ok = False
+                    try:
+                        sr = await client.get(
+                            f"{mp_url.rstrip('/')}/api/v1/subscribe/",
+                            headers={"Authorization": mp_token},
+                        )
+                        sub_ok = sr.status_code == 200
+                    except Exception:
+                        pass
+
+                    detail_parts = [f"版本: {version_str}"]
+                    if is_v3:
+                        detail_parts.append("V3+" if tmdb_ok else "V3（TMDB代理未启用）")
+                    else:
+                        detail_parts.append("V1/V2（需配置 TMDB API Key）")
+                    if sub_ok:
+                        detail_parts.append("订阅API可用")
+                    else:
+                        detail_parts.append("订阅API不可用")
+
+                    results.append({
+                        "name": "MoviePilot",
+                        "ok": True,
+                        "detail": "，".join(detail_parts),
+                        "version": version_str,
+                        "is_v3": is_v3,
+                        "tmdb_proxy": tmdb_ok,
+                        "subscribe_ok": sub_ok,
+                    })
                 else:
                     results.append({"name": "MoviePilot", "ok": False,
                                    "detail": f"返回异常状态码：{resp.status_code}"})
@@ -153,18 +202,26 @@ async def test_connection(
         results.append({"name": "MoviePilot", "ok": False,
                        "detail": "地址或 Token 未填写"})
 
-    # 2. 测试 TMDB
+    # 2. 测试 TMDB 数据源
     tmdb_key = (body or {}).get("tmdb_key", app_settings.tmdb_key)
-    if mp_url and mp_token:
-        # 通过 MP 代理更好
+    mp_is_v3 = any(r.get("is_v3") for r in results if r.get("name") == "MoviePilot")
+    mp_has_proxy = any(r.get("tmdb_proxy") for r in results if r.get("name") == "MoviePilot")
+
+    if mp_has_proxy:
         results.append({"name": "TMDB 数据", "ok": True,
-                       "detail": "将使用 MoviePilot 代理（无需 TMDB Key）"})
+                       "detail": "通过 MoviePilot V3 代理（无需 TMDB Key）"})
+    elif mp_is_v3:
+        results.append({"name": "TMDB 数据", "ok": False,
+                       "detail": "MP V3 但 TMDB 代理未开启，请在 MP 设置中启用"})
     elif tmdb_key:
         results.append({"name": "TMDB 数据", "ok": True,
-                       "detail": "将使用直连 TMDB（自己的 API Key）"})
+                       "detail": "使用直连 TMDB API（自己的 Key，MP V1/V2 兼容）"})
+    elif mp_url and mp_token:
+        results.append({"name": "TMDB 数据", "ok": False,
+                       "detail": "MP 为 V1/V2 且未填写 TMDB API Key，请到 TMDB 官网申请免费 Key"})
     else:
         results.append({"name": "TMDB 数据", "ok": False,
-                       "detail": "MP 地址未填，且未填 TMDB Key，请至少填一个"})
+                       "detail": "请先配置 MoviePilot 地址，或填写 TMDB API Key 直连"})
 
     # 3. 测试 Emby（如果配置了）
     emby_url = (body or {}).get("emby_url", "")
