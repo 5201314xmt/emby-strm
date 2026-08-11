@@ -80,7 +80,7 @@ async def lifespan(app: FastAPI):
 
     # 初始化全局客户端（MoviePilot + TMDB）
     from .core.app_state import init_clients
-    init_clients()
+    await init_clients()
     print("[启动] 客户端已初始化")
 
     # 恢复上次意外中断的扫描任务（标记为失败）

@@ -8,30 +8,50 @@
 """
 from ..services.moviepilot import MoviePilotClient
 from ..services.tmdb import TMDBSource
-from ..config import settings as app_settings
+
+
+# ---- DB 配置读取工具 ----
+async def _get_db_setting(key: str, default: str = "") -> str:
+    """从数据库 settings 表读取一个配置值"""
+    from ..core.database import AsyncSessionLocal
+    from ..models.setting import Setting
+    from sqlalchemy import select
+    async with AsyncSessionLocal() as db:
+        r = await db.execute(select(Setting.value).where(Setting.key == key))
+        row = r.scalar_one_or_none()
+        return row if row else default
+
 
 # ---- 共享客户端实例 ----
 mp_client: MoviePilotClient = None
 tmdb_source: TMDBSource = None
 
 
-def init_clients():
-    """应用启动时初始化所有客户端（从 DB 配置读取）"""
+async def init_clients():
+    """应用启动时从数据库读取配置初始化所有客户端"""
     global mp_client, tmdb_source
-    mp_client = MoviePilotClient()
-    tmdb_source = TMDBSource(mp_client, app_settings.tmdb_key, app_settings.tmdb_lang)
+    mp_url = await _get_db_setting("mp_url")
+    mp_token = await _get_db_setting("mp_token")
+    tmdb_key = await _get_db_setting("tmdb_key")
+    tmdb_lang = await _get_db_setting("tmdb_lang", "zh-CN")
+    mp_client = MoviePilotClient(mp_url, mp_token)
+    tmdb_source = TMDBSource(mp_client, tmdb_key, tmdb_lang)
 
 
 async def reload_clients():
-    """设置保存后调用，让新配置立即生效（先关闭旧客户端，再创建新实例）"""
+    """设置保存后调用，从数据库重新读取配置并热更新客户端"""
     global mp_client, tmdb_source
     if mp_client:
         try:
             await mp_client.close()
         except Exception:
             pass
-    mp_client = MoviePilotClient()
-    tmdb_source = TMDBSource(mp_client, app_settings.tmdb_key, app_settings.tmdb_lang)
+    mp_url = await _get_db_setting("mp_url")
+    mp_token = await _get_db_setting("mp_token")
+    tmdb_key = await _get_db_setting("tmdb_key")
+    tmdb_lang = await _get_db_setting("tmdb_lang", "zh-CN")
+    mp_client = MoviePilotClient(mp_url, mp_token)
+    tmdb_source = TMDBSource(mp_client, tmdb_key, tmdb_lang)
 
 
 async def get_auto_subscribe() -> bool:
