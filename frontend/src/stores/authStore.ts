@@ -26,7 +26,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ loading: false })
       }
     } catch {
-      set({ loading: false })
+      // 网络错误时不改变 initialized 状态（避免误跳到 setup 页）
+      set((s) => ({ loading: false, loggedIn: false }))
     }
   },
 

@@ -45,23 +45,24 @@ async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
     _active_connections.append(ws)
 
-    # 创建事件回调：收到事件后推送给此连接（带 type 封装）
-    async def make_forwarder(event_type: str):
-        async def forward(data: dict):
-            try:
-                await ws.send_json({"type": event_type, "data": data})
-            except Exception:
-                pass
-        return forward
+    # 为每个事件类型创建独立回调，收集引用以便断开时取消订阅
+    fwd_callbacks: list[tuple[str, callable]] = []
 
-    # 订阅到事件总线（每个事件类型独立回调，确保 type 正确）
     for et in [
         EventType.SCAN_PROGRESS, EventType.SCAN_COMPLETED, EventType.SCAN_FAILED,
         EventType.SCAN_PAUSED, EventType.SCAN_RESUMED, EventType.SCAN_CANCELLED,
         EventType.DASHBOARD_REFRESH,
     ]:
-        fwd = await make_forwarder(et)
-        event_bus.subscribe(et, fwd)
+        def _make_cb(event_type: str):
+            async def _cb(data: dict):
+                try:
+                    await ws.send_json({"type": event_type, "data": data})
+                except Exception:
+                    pass
+            return _cb
+        cb = _make_cb(et)
+        fwd_callbacks.append((et, cb))
+        event_bus.subscribe(et, cb)
 
     await ws.send_json({"type": "connected", "data": {"message": "WebSocket 已连接"}})
 
@@ -75,6 +76,8 @@ async def websocket_endpoint(ws: WebSocket):
     except Exception:
         pass
     finally:
-        # 取消订阅（fwd 引用在 finally 不可达，但 event_bus.unsubscribe 用 get 防 KeyError）
+        # 取消订阅所有事件（防止内存泄漏）
+        for et, cb in fwd_callbacks:
+            event_bus.unsubscribe(et, cb)
         if ws in _active_connections:
             _active_connections.remove(ws)

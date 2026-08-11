@@ -107,7 +107,7 @@ async def save_settings(
 
     # 热更新内存中的客户端实例
     from ..core.app_state import reload_clients
-    reload_clients()
+    await reload_clients()
     from ..services.logger import add_log
     await add_log("INFO", "system", "设置已保存，客户端已重新加载")
 

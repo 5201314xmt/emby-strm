@@ -22,13 +22,12 @@ def init_clients():
     tmdb_source = TMDBSource(mp_client, app_settings.tmdb_key, app_settings.tmdb_lang)
 
 
-def reload_clients():
+async def reload_clients():
     """设置保存后调用，让新配置立即生效（先关闭旧客户端，再创建新实例）"""
     global mp_client, tmdb_source
     if mp_client:
         try:
-            import asyncio as _aio
-            _aio.run(mp_client.close())
+            await mp_client.close()
         except Exception:
             pass
     mp_client = MoviePilotClient()

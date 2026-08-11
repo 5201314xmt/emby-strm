@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import React from 'react'
 import {
   Search, ChevronRight, BellOff, Send,
@@ -92,6 +92,27 @@ export default function MissingPage() {
       return next
     })
   }
+
+  // 计算所有可选项 (非 complete, 非 ignored)
+  const selectableKeys = useMemo(() => {
+    const keys: string[] = []
+    shows.forEach((show) => {
+      show.seasons
+        .filter((s) => s.status !== 'complete' && !s.ignored)
+        .forEach((s) => keys.push(`${show.tmdb_id}:${s.season_number}`))
+    })
+    return keys
+  }, [shows])
+
+  const allSelected = selectableKeys.length > 0 && selectableKeys.every((k) => selected.has(k))
+  const someSelected = selectableKeys.some((k) => selected.has(k))
+  const headerCheckboxRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (headerCheckboxRef.current) {
+      headerCheckboxRef.current.indeterminate = someSelected && !allSelected
+    }
+  }, [someSelected, allSelected])
 
   const handleSubscribe = async (tmdbId: number, season: number) => {
     try {
@@ -209,7 +230,9 @@ export default function MissingPage() {
                 <tr className="border-b border-border bg-card/50">
                   <th className="w-10 px-3 py-2 text-left">
                     <input
+                      ref={headerCheckboxRef}
                       type="checkbox"
+                      checked={allSelected}
                       onChange={(e) => {
                         if (!e.target.checked) { setSelected(new Set()); return }
                         const all: Set<string> = new Set()

@@ -20,7 +20,6 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import api_router
-from .api.ws import router as ws_router
 from .core.security import validate_session
 from .core.database import engine, Base
 from .utils.helpers import make_response
@@ -109,7 +108,6 @@ app = FastAPI(
 
 # ========== 注册路由 ==========
 app.include_router(api_router)
-app.include_router(ws_router)
 
 # ========== 速率限制中间件 ==========
 # 对登录/设置密码接口限制频率（防暴力破解）

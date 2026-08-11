@@ -9,7 +9,7 @@
 """
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, text as sa_text
 from typing import Optional
 
 from ..core.database import get_db
@@ -51,10 +51,9 @@ async def list_shows(
 
     # 按扫描源筛选（shows.source_ids 是 JSON 数组，检查是否包含指定 source_id）
     if source_id:
-        from sqlalchemy import text as sa_text
         conditions.append(
-            sa_text(f"json_array_length(json_extract(shows.source_ids, '$')) > 0 "
-                    f"AND EXISTS (SELECT 1 FROM json_each(shows.source_ids) WHERE value = {source_id})")
+            sa_text("EXISTS (SELECT 1 FROM json_each(shows.source_ids) WHERE value = CAST(:sid AS INTEGER))")
+            .bindparams(sid=source_id)
         )
 
     # 按状态筛选
