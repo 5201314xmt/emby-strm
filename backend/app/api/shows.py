@@ -397,7 +397,8 @@ async def batch_subscribe(
     if not mp_client.is_configured:
         return make_response(False, message="请先在设置页填写 MoviePilot 地址和 API Token")
 
-    ok_count, fail_count = 0, 0
+    ok_count, fail_count, skip_count = 0, 0, 0
+    fail_msgs = []
     for it in items:
         try:
             tmdb_id = int(it.get("tmdb_id"))
@@ -415,20 +416,48 @@ async def batch_subscribe(
         existing = await db.scalar(
             select(Subscription).where(Subscription.tmdb_id == tmdb_id, Subscription.season == season)
         )
-        if existing: continue
+        if existing:
+            skip_count += 1; continue
+
         ok, data = await mp_client.create_subscribe(name, year, tmdb_id, season, total_ep)
         if ok:
-            mp_id = data if isinstance(data, int) else None
-            db.add(Subscription(tmdb_id=tmdb_id, season=season, mp_id=mp_id, name=name, state="R"))
+            # MP 可能返回 int id 或 {"id": 123} 格式
+            mp_id = None
+            if isinstance(data, int):
+                mp_id = data
+            elif isinstance(data, dict):
+                mp_id = data.get("id")
+            # 记录本地订阅
+            exist2 = await db.scalar(
+                select(Subscription).where(Subscription.tmdb_id == tmdb_id, Subscription.season == season)
+            )
+            if exist2:
+                exist2.mp_id = mp_id; exist2.state = "R"
+            else:
+                db.add(Subscription(tmdb_id=tmdb_id, season=season, mp_id=mp_id, name=name, state="R"))
             ok_count += 1
             if mp_id:
                 try: await mp_client.search_subscribe(mp_id)
                 except Exception: pass
         else:
-            if "已在订阅" not in str(data): fail_count += 1
+            msg = str(data)
+            if "已在订阅" in msg:
+                skip_count += 1
+            else:
+                fail_count += 1
+                fail_msgs.append(f"《{name}》S{season}: {msg}")
 
     await db.commit()
-    return make_response(True, message=f"完成！成功订阅 {ok_count} 个季" + (f"，{fail_count} 个失败" if fail_count else ""))
+
+    msg_parts = [f"成功 {ok_count} 个季"]
+    if skip_count: msg_parts.append(f"已订阅 {skip_count} 个季已跳过")
+    if fail_count: msg_parts.append(f"失败 {fail_count} 个季")
+    message = "，".join(msg_parts)
+
+    return make_response(True, data={
+        "ok": ok_count, "skip": skip_count, "fail": fail_count,
+        "fail_msgs": fail_msgs,
+    }, message=message)
 
 
 @router.post("/batch/ignore")
