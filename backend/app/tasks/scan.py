@@ -230,7 +230,6 @@ async def run_scan(job_id: int, tmdb_source: TMDBSource, mp_client,
         await add_log("SUCCESS", "scan", f"扫描完成！共处理 {total_shows} 部剧")
 
         # 记录上次扫描时间
-        from ..core.database import AsyncSessionLocal
         from ..models.setting import Setting
         async with AsyncSessionLocal() as db:
             result = await db.execute(select(Setting).where(Setting.key == "last_scan"))
