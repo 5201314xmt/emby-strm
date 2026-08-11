@@ -227,7 +227,8 @@ export default function MissingPage() {
         {/* 排序 */}
         <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1) }}
           className="rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none">
-          <option value="missing_count">缺集数 ↓</option>
+          <option value="missing_count">缺集多→少</option>
+          <option value="missing_count_asc">缺集少→多</option>
           <option value="name">剧名 A→Z</option>
         </select>
         {/* 搜索框 + 清除 */}

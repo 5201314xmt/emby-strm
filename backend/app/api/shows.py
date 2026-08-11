@@ -29,7 +29,7 @@ async def list_shows(
     source_id: Optional[int] = Query(None, description="按扫描源 ID 筛选"),
     status: Optional[str] = Query(None, description="partial|full_missing|complete|ignored|error"),
     search: Optional[str] = Query(None, description="搜索剧名关键字"),
-    sort: str = Query("missing_count", description="排序方式：missing_count|name"),
+    sort: str = Query("missing_count", description="排序：missing_count(缺集多→少) missing_count_asc(缺集少→多) name(剧名A→Z)"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(50, ge=1, le=200, description="每页数量"),
     db: AsyncSession = Depends(get_db),
@@ -98,9 +98,8 @@ async def list_shows(
     # ---- 排序 ----
     if sort == "name":
         query = query.order_by(Show.name.asc())
-    elif sort == "missing_count":
-        # 子查询：每部剧的总缺集数，降序（最缺的排最前）
-        from sqlalchemy import text as _t
+    elif sort in ("missing_count", "missing_count_asc"):
+        # 子查询：每部剧的总缺集数
         missing_subq = (
             select(func.coalesce(func.sum(
                 func.json_array_length(Season.missing_episodes)), 0))
@@ -108,7 +107,10 @@ async def list_shows(
             .correlate(Show)
             .scalar_subquery()
         )
-        query = query.order_by(missing_subq.desc(), Show.updated_at.desc())
+        if sort == "missing_count":
+            query = query.order_by(missing_subq.desc(), Show.updated_at.desc())
+        else:
+            query = query.order_by(missing_subq.asc(), Show.updated_at.desc())
     else:
         query = query.order_by(Show.updated_at.desc())
 
