@@ -1,34 +1,51 @@
 # ============================================================
-# 缺集管家 - Docker Compose 配置文件（小白一键启动）
+# 缺集管家 v2.0 - Docker Compose 配置文件
 #
 # 使用步骤（3 步）：
-#   1.（推荐）复制 .env.example 为 .env，把 MEDIA_DIR 改成你的 strm 目录
-#   2. 在本文件所在目录执行：  docker compose up -d
-#   3. 浏览器打开 http://服务器IP:8899 开始使用
+#   1. 复制 .env.example 为 .env，修改 MEDIA_DIR 为你的 STRM 目录宿主机路径
+#   2. 执行：docker compose up -d --build
+#   3. 浏览器打开 http://你的IP:8899
 #
-# 不想建 .env？直接改下面 volumes 里的 /你的strm目录 也行（只改这一处）
+# 容器内路径：
+#   STRM 文件挂载到 /media（只读）
+#   数据文件存 /app/data
 #
-# 升级方法：重新执行 docker compose up -d --build
-# 停止方法：docker compose down
-# 备份数据：把 ./data 目录整个复制走即可（含数据库自动备份）
+# 升级：docker compose up -d --build
+# 停止：docker compose down
+# 备份：把 ./data 目录复制走即可
 # ============================================================
 
 services:
-  queji:                          # 服务名字，可随意改
-    build: .                      # 使用当前目录的 Dockerfile 构建
-    container_name: queji         # 容器名字
-    restart: unless-stopped       # 开机自启 + 崩溃自动重启（小白友好）
+  queji:
+    build: .
+    container_name: queji
+    restart: unless-stopped
     ports:
-      - "${APP_PORT:-8899}:8899"  # 网页端口（不想用默认 8899 时改 .env 里的 APP_PORT）
+      - "${APP_PORT:-8899}:8899"
+
     volumes:
-      # strm 目录：优先读 .env 的 MEDIA_DIR，没有就默认 /你的strm目录（需要手动改）
-      - "${MEDIA_DIR:-/你的strm目录}:/media:ro"
-      #- "${MEDIA_DIR2:-/第二个strm目录}:/media2:ro"   # 有第二个目录时在 .env 里加 MEDIA_DIR2
-      - "${DATA_DIR:-./data}:/app/data"   # 数据保存目录（配置、扫描结果、数据库备份都在这里）
+      # STRM 文件目录（只读挂载到容器内 /media）
+      - "${MEDIA_DIR:?请在.env中设置MEDIA_DIR}:/media:ro"
+
+      # 第二个 STRM 目录（可选）
+      # 取消下面注释并在 .env 中配 MEDIA_DIR2
+      # - "${MEDIA_DIR2:-/第二个strm目录}:/media2:ro"
+
+      # 数据目录（数据库、备份等）
+      - "${DATA_DIR:-./data}:/app/data"
+
+    # 从 .env 文件读取环境变量
+    env_file:
+      - .env
+
     environment:
-      - TZ=Asia/Shanghai          # 时区：北京时间
-    healthcheck:                  # 健康检查（可选，用于面板显示运行状态）
-      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8899/api/health',timeout=3)"]
+      - TZ=Asia/Shanghai
+      - DATA_DIR=/app/data
+
+    # 健康检查（CMD-SHELL 格式保证引号正确）
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8899/api/health', timeout=3)\""]
       interval: 60s
       timeout: 5s
       retries: 3
+      start_period: 10s

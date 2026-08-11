@@ -1,0 +1,22 @@
+# ============================================================
+# 缺集管家 v2.0 - Python 依赖清单
+# 
+# 所有依赖都锁定版本号，保证每次构建结果一致。
+# 小白不用关心这些——docker compose up 会自动安装。
+# ============================================================
+
+# Web 框架（接口 + 网页服务）
+fastapi==0.115.6           # 异步 Web 框架，自动生成 API 文档
+uvicorn[standard]==0.34.0  # ASGI 服务器，运行 FastAPI 的引擎
+
+# 数据库
+sqlalchemy[asyncio]==2.0.36  # ORM 框架，用 Python 对象操作数据库
+aiosqlite==0.20.0            # SQLite 异步驱动（配合 SQLAlchemy async）
+alembic==1.14.0              # 数据库迁移工具（版本化建表/改表）
+
+# HTTP 客户端（访问 MoviePilot / Emby / TMDB）
+httpx==0.28.1
+
+# 工具库
+python-multipart==0.0.18     # 表单解析（FastAPI 依赖）
+pydantic-settings==2.7.0     # 配置管理（从 .env / 环境变量读取设置）

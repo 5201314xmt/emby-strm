@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========== shadcn/ui CSS 变量 ========== */
+:root {
+  --background: 0 0% 5.9%;      /* #0f0f11 */
+  --foreground: 0 0% 89.8%;      /* #e4e4e7 */
+  --card: 0 0% 10.2%;            /* #1a1a1e */
+  --card-foreground: 0 0% 89.8%;
+  --border: 0 0% 16.5%;          /* #2a2a30 */
+  --muted: 0 0% 15.3%;           /* #27272a */
+  --muted-foreground: 0 0% 63.1%; /* #a1a1aa */
+  --accent: 0 0% 15.3%;
+  --primary: 217 91% 60%;        /* #3b82f6 */
+  --primary-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;      /* #ef4444 */
+  --destructive-foreground: 0 0% 100%;
+  --radius: 0.5rem;
+}
+
+/* ========== 滚动条风格 ========== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #3a3a40;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4a4a50;
+}
+
+/* ========== 全局过渡动效 ========== */
+* {
+  border-color: #2a2a30;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
