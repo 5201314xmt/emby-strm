@@ -294,13 +294,26 @@ async def subscribe_season(
     ok, data = await mp_client.create_subscribe(name, year, tmdb_id, season, total_ep)
     if not ok:
         if "已在订阅" in str(data):
-            db.add(Subscription(tmdb_id=tmdb_id, season=season, name=name, state="R"))
-            await db.commit()
+            # 确保本地有记录（防唯一约束冲突）
+            existing = await db.scalar(
+                select(Subscription).where(Subscription.tmdb_id == tmdb_id, Subscription.season == season)
+            )
+            if not existing:
+                db.add(Subscription(tmdb_id=tmdb_id, season=season, name=name, state="R"))
+                await db.commit()
             return make_response(False, message="已在订阅中")
         return make_response(False, message=str(data))
 
     mp_id = data if isinstance(data, int) else None
-    db.add(Subscription(tmdb_id=tmdb_id, season=season, mp_id=mp_id, name=name, state="R"))
+    existing = await db.scalar(
+        select(Subscription).where(Subscription.tmdb_id == tmdb_id, Subscription.season == season)
+    )
+    if existing:
+        existing.mp_id = mp_id
+        existing.state = "R"
+        existing.name = name
+    else:
+        db.add(Subscription(tmdb_id=tmdb_id, season=season, mp_id=mp_id, name=name, state="R"))
     await db.commit()
     if mp_id:
         try:

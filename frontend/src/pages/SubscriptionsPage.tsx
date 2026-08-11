@@ -107,8 +107,8 @@ export default function SubscriptionsPage() {
               </tr>
             </thead>
             <tbody>
-              {subs.map((sub, idx) => (
-                <tr key={idx} className="border-b border-border hover:bg-accent/30 transition-colors">
+              {subs.map((sub) => (
+                <tr key={sub.id ?? `${sub.tmdb_id}:${sub.season}`} className="border-b border-border hover:bg-accent/30 transition-colors">
                   <td className="px-3 py-2 font-medium">{sub.name || `TMDB:${sub.tmdb_id}`}</td>
                   <td className="px-3 py-2 font-mono text-xs">S{String(sub.season).padStart(2, '0')}</td>
                   <td className="px-3 py-2">

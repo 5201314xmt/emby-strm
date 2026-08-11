@@ -55,7 +55,9 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
         masked = False
         display = value
         if key in MASKED_KEYS and value and not _is_masked_value(value):
+            # 敏感字段：返回打码值，前端永不可见明文
             display = mask_secret(value)
+            value = display  # ← 用打码值替代真实值，防止密钥泄露到浏览器
             masked = True
 
         items.append({
@@ -93,7 +95,11 @@ async def save_settings(
         if key in MASKED_KEYS and isinstance(value, str) and _is_masked_value(value):
             continue
 
-        value_str = str(value)
+        # 统一转字符串：布尔值转为 "1"/"0"（兼容前端发 boolean 或 string）
+        if isinstance(value, bool):
+            value_str = "1" if value else "0"
+        else:
+            value_str = str(value)
         # upsert（存在则更新，不存在则插入）
         result = await db.execute(select(Setting).where(Setting.key == key))
         setting = result.scalar_one_or_none()

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Trash2, Copy, Search, Pause, Play } from 'lucide-react'
 import api from '@/lib/api'
-import { StatusBadge } from '@/components/shared/StatusBadge'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { TableSkeleton } from '@/components/shared/Skeleton'
 import { LOG_LEVEL_COLORS, formatTime } from '@/lib/utils'

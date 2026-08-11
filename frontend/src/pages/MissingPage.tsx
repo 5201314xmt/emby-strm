@@ -54,7 +54,6 @@ export default function MissingPage() {
   const [searchText, setSearchText] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [filterCounts, setFilterCounts] = useState<Record<string, number>>({})
   const pageSize = 50
 
   const fetchShows = useCallback(async () => {
@@ -67,22 +66,6 @@ export default function MissingPage() {
       if (res.data.success) {
         setShows(res.data.data.items)
         setTotal(res.data.data.total)
-        // 本地计算各状态数量（用于角标）
-        const counts: Record<string, number> = { all: res.data.data.total }
-        const items = res.data.data.items
-        let partial = 0, full_missing = 0, complete = 0, ignored = 0, error = 0
-        items.forEach((show: any) => {
-          show.seasons.forEach((s: any) => {
-            if (s.status === 'partial') partial++
-            else if (s.status === 'full_missing') full_missing++
-            else if (s.status === 'complete') complete++
-            if (s.ignored || show.ignore_entire) ignored++
-          })
-          if (show.status === 'error') error++
-        })
-        counts.partial = partial; counts.full_missing = full_missing
-        counts.complete = complete; counts.ignored = ignored; counts.error = error
-        setFilterCounts(counts)
       }
     } catch (e) {
       console.error('获取列表失败:', e)
@@ -203,26 +186,20 @@ export default function MissingPage() {
       {/* ========== 筛选栏 ========== */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex rounded-md border border-border">
-          {statusOptions.map((opt) => {
-            const count = filterCounts[opt.value]
-            return (
-              <button
-                key={opt.value}
-                onClick={() => { setSelectedSource(opt.value); setPage(1) }}
-                className={cn(
-                  'border-r border-border px-3 py-1.5 text-xs last:border-r-0 transition-colors',
-                  selectedSource === opt.value
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {opt.label}
-                {count !== undefined && (
-                  <span className={cn('ml-1 opacity-60', selectedSource === opt.value ? 'text-primary' : '')}>({count})</span>
-                )}
-              </button>
-            )
-          })}
+          {statusOptions.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => { setSelectedSource(opt.value); setPage(1) }}
+              className={cn(
+                'border-r border-border px-3 py-1.5 text-xs last:border-r-0 transition-colors',
+                selectedSource === opt.value
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
         {/* 排序 */}
         <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1) }}
@@ -248,6 +225,7 @@ export default function MissingPage() {
             </button>
           )}
         </div>
+        <span className="text-xs text-muted-foreground ml-auto">共 {total} 条</span>
       </div>
 
       {/* ========== 批量操作条 ========== */}

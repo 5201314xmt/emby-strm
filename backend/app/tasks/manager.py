@@ -98,7 +98,7 @@ class TaskManager:
         self._active_job_id = job_id
         self._active_task = asyncio.create_task(
             self._run_scan(job_id, tmdb_source, mp_client,
-                          auto_subscribe, include_specials)
+                          auto_subscribe, include_specials, source_ids)
         )
 
         await add_log("INFO", "scan", f"扫描任务 #{job_id} 已启动")
@@ -147,7 +147,8 @@ class TaskManager:
     # ========== 内部执行 ==========
 
     async def _run_scan(self, job_id: int, tmdb_source, mp_client,
-                        auto_subscribe: bool, include_specials: bool):
+                        auto_subscribe: bool, include_specials: bool,
+                        source_ids: list[int] = None):
         from .scan import run_scan
         try:
             await run_scan(
@@ -156,6 +157,7 @@ class TaskManager:
                 mp_client=mp_client,
                 auto_subscribe=auto_subscribe,
                 include_specials=include_specials,
+                source_ids=source_ids,
                 cancel_check=lambda: self._cancel_flag,
                 pause_check=lambda: self._pause_flag,
             )

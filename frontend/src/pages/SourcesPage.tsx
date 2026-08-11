@@ -261,7 +261,7 @@ export default function SourcesPage() {
                       {src.last_scan_status && (
                         <StatusBadge value={src.last_scan_status} variant="scan" />
                       )}
-                      {src.show_count && <span>{src.show_count} 部剧</span>}
+                      {src.show_count != null && <span>{src.show_count} 部剧</span>}
                     </div>
                   )}
                   {src.last_error && (

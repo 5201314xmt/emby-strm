@@ -1,7 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Search, Loader2 } from 'lucide-react'
 import { useScanStore } from '@/stores/scanStore'
-import { useUIStore } from '@/stores/uiStore'
 
 const pageTitles: Record<string, string> = {
   '/dashboard': '仪表盘',
@@ -19,7 +18,6 @@ export function TopBar() {
   const location = useLocation()
   const navigate = useNavigate()
   const dashboard = useScanStore((s) => s.dashboard)
-  const { setShowSearch } = useUIStore()
 
   const activeScan = dashboard?.active_scan
   const title = pageTitles[location.pathname] || '缺集管家'

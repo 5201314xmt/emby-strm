@@ -67,6 +67,7 @@ def merge_scan_results(target, source, source_id: int):
 async def run_scan(job_id: int, tmdb_source: TMDBSource, mp_client,
                    auto_subscribe: bool = False,
                    include_specials: bool = False,
+                   source_ids: list[int] = None,
                    cancel_check=None, pause_check=None):
     """
     执行一次完整的扫描流程
@@ -114,9 +115,10 @@ async def run_scan(job_id: int, tmdb_source: TMDBSource, mp_client,
 
         # ---- 1. 获取启用的扫描源 ----
         async with AsyncSessionLocal() as db:
-            sources = (await db.execute(
-                select(Source).where(Source.enabled == True)
-            )).scalars().all()
+            query = select(Source).where(Source.enabled == True)
+            if source_ids:
+                query = query.where(Source.id.in_(source_ids))
+            sources = (await db.execute(query)).scalars().all()
 
         if not sources:
             raise RuntimeError("没有启用的扫描源，请先在设置页添加 STRM 目录或 Emby 源")
@@ -131,6 +133,10 @@ async def run_scan(job_id: int, tmdb_source: TMDBSource, mp_client,
             _ck()
             await _update(10 + sources.index(src) * 10 / len(sources),
                          phase=f"扫描 {src.name}...", current=src.path)
+            # 安全删除：只删此源的旧未识别记录（中断不丢其他源数据）
+            async with AsyncSessionLocal() as db:
+                await db.execute(delete(UnrecognizedFile).where(UnrecognizedFile.source_id == src.id))
+                await db.commit()
             if src.type == "filesystem":
                 # 文件系统扫描是同步 I/O，放到线程池执行
                 result = await asyncio.to_thread(fs_scan, [src.path], src.id)
@@ -143,9 +149,8 @@ async def run_scan(job_id: int, tmdb_source: TMDBSource, mp_client,
         _ck()
         await _update(25, phase="扫描完成", total=len(merged.shows))
 
-        # ---- 3. 写入未识别文件列表 ----
+        # ---- 3. 写入未识别文件（已在源循环中按源清旧，这里直接插入新记录） ----
         async with AsyncSessionLocal() as db:
-            await db.execute(delete(UnrecognizedFile))
             for item in merged.unrecognized:
                 db.add(UnrecognizedFile(
                     path=item.get("path", ""),
