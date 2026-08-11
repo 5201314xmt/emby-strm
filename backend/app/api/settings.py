@@ -111,11 +111,14 @@ async def save_settings(
 
     await db.commit()
 
-    # 热更新内存中的客户端实例
-    from ..core.app_state import reload_clients
-    await reload_clients()
-    from ..services.logger import add_log
-    await add_log("INFO", "system", "设置已保存，客户端已重新加载")
+    # 热更新内存中的客户端实例（失败不阻塞保存结果）
+    try:
+        from ..core.app_state import reload_clients
+        await reload_clients()
+        from ..services.logger import add_log
+        await add_log("INFO", "system", "设置已保存，客户端已重新加载")
+    except Exception as e:
+        await add_log("WARN", "system", f"客户端热更新失败: {e}")
 
     return make_response(True, message=f"已保存 {saved_count} 项设置")
 
