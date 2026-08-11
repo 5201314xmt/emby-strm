@@ -1,4 +1,4 @@
-# 缺集管家 v2.3
+# 缺集管家 v2.4
 
 自动扫描 STRM/Emby 媒体库 → 对比 TMDB 计算缺集 → 一键提交 MoviePilot 补全。
 

@@ -5,9 +5,31 @@
 
 | 字段 | 值 |
 |------|-----|
-| 版本 | 2.3.0 |
+| 版本 | 2.4.0 |
 | 最后更新 | 2026-08-11 |
 | 维护者 | 产品负责人 / 架构师 |
+
+## 变更记录 / Changelog
+
+### v2.4.0 (2026-08-11)
+- fix: 设置页布尔开关反跳 — `auto_scan`/`auto_subscribe`/`include_specials` 归一化为 "1"/"0"
+- fix: `/api/settings` GET 敏感字段返回打码值，密钥不再泄露到浏览器
+- fix: 扫描 `source_ids` 筛选实际生效
+- fix: 未识别文件按源删除，中断不丢数据
+- fix: 重复订阅防 IntegrityError 白屏
+- fix: MissingPage 移除页面级假角标
+- feat: 缺集列表排序(缺集多→少 / 缺集少→多 / 剧名)
+- feat: 搜索支持 TMDB ID + 防抖 300ms
+- feat: Dashboard 扫描速度 + KPI空引导 + 历史详情链接
+- feat: LogsPage 自动刷新(5s)
+- feat: MoviePilot 连接多端点探测 + Authorization/X-API-Key 双认证头
+- feat: MoviePilot/TMDB 配置从 DB 读取，网页配置热更新
+
+### v2.3.0 (2026-08-11) — 审计修复版
+- 3 CRITICAL: WS断开内存泄漏 / ws_router重复注册 / asyncio.run crash
+- 3 HIGH: SQL注入→bindparams / select-all受控组件 / authStore错误保留initialized
+- 5 P1: Emby源UI / 异常筛选 / include_specials保存 / 扫描恢复 / 旧客户端关闭
+- 4 P2: 全局搜索 / Emby分页 / 安装向导 / 日志分页
 
 ---
 
