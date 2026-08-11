@@ -25,11 +25,16 @@ class MoviePilotClient:
         self.url = (url or app_settings.mp_url).rstrip("/")
         self.token = token or app_settings.mp_token
         self.version = ""
-        # 共享 HTTP 客户端（复用连接池）
         self._client: httpx.AsyncClient = None
 
+    def _headers(self) -> dict:
+        """构造认证请求头（同时发送 Authorization 和 X-API-Key，兼容不同 MP 版本）"""
+        return {
+            "Authorization": self.token,
+            "X-API-Key": self.token,
+        }
+
     async def _get_client(self) -> httpx.AsyncClient:
-        """获取或创建 HTTP 客户端（延迟初始化，避免未配置时浪费）"""
         if self._client is None:
             self._client = httpx.AsyncClient(timeout=30)
         return self._client
@@ -43,6 +48,7 @@ class MoviePilotClient:
         """
         测试与 MoviePilot 的连接
 
+        依次尝试多个端点来检测 MP 是否可用（某些 MP 版本不暴露根路径）。
         Returns:
             {"ok": True/False, "message": "...", "version": "..."}
         """
@@ -50,15 +56,24 @@ class MoviePilotClient:
             return {"ok": False, "message": "MoviePilot 地址或 Token 未配置", "version": ""}
         try:
             client = await self._get_client()
-            resp = await client.get(
-                f"{self.url}/api/v1/",
-                headers={"Authorization": self.token},
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                self.version = data.get("version", "未知")
-                return {"ok": True, "message": "连接成功", "version": self.version}
-            return {"ok": False, "message": f"返回异常状态码：{resp.status_code}", "version": ""}
+            headers = self._headers()
+
+            # 尝试多个路径检测 MP 可用性（某些版本 /api/v1/ 返回 404）
+            for path in ["/api/v1/", "/api/v1/tmdb/seasons/1399", "/api/v1/subscribe/"]:
+                try:
+                    resp = await client.get(f"{self.url}{path}", headers=headers)
+                    if resp.status_code == 200:
+                        data = resp.json() if path == "/api/v1/" else {}
+                        self.version = data.get("version", "") if isinstance(data, dict) else ""
+                        return {
+                            "ok": True,
+                            "message": f"连接成功（{path}）" + (f" v{self.version}" if self.version else ""),
+                            "version": self.version,
+                        }
+                except Exception:
+                    continue
+
+            return {"ok": False, "message": "MoviePilot 所有端点均无响应，请检查地址和 Token", "version": ""}
         except Exception as e:
             return {"ok": False, "message": f"连接失败：{e}", "version": ""}
 
@@ -72,7 +87,7 @@ class MoviePilotClient:
             client = await self._get_client()
             resp = await client.get(
                 f"{self.url}/api/v1/tmdb/seasons/1399",
-                headers={"Authorization": self.token},
+                headers=self._headers(),
             )
             return resp.status_code == 200
         except Exception:
@@ -89,7 +104,7 @@ class MoviePilotClient:
             client = await self._get_client()
             resp = await client.get(
                 f"{self.url}/api/v1/tmdb/seasons/{tmdb_id}",
-                headers={"Authorization": self.token},
+                headers=self._headers(),
             )
             if resp.status_code == 200:
                 return True, resp.json()
@@ -108,7 +123,7 @@ class MoviePilotClient:
             client = await self._get_client()
             resp = await client.get(
                 f"{self.url}/api/v1/tmdb/episodes/{tmdb_id}/{season}",
-                headers={"Authorization": self.token},
+                headers=self._headers(),
             )
             if resp.status_code == 200:
                 return True, resp.json()
@@ -129,7 +144,7 @@ class MoviePilotClient:
             client = await self._get_client()
             resp = await client.get(
                 f"{self.url}/api/v1/subscribe/",
-                headers={"Authorization": self.token},
+                headers=self._headers(),
             )
             if resp.status_code == 200:
                 return True, resp.json()
@@ -156,7 +171,7 @@ class MoviePilotClient:
             }
             resp = await client.post(
                 f"{self.url}/api/v1/subscribe/",
-                headers={"Authorization": self.token},
+                headers=self._headers(),
                 json=body,
             )
             if resp.status_code in (200, 201):
@@ -181,7 +196,7 @@ class MoviePilotClient:
             client = await self._get_client()
             resp = await client.delete(
                 f"{self.url}/api/v1/subscribe/",
-                headers={"Authorization": self.token},
+                headers=self._headers(),
                 params={"id": mp_id},
             )
             if resp.status_code in (200, 204):
@@ -196,7 +211,7 @@ class MoviePilotClient:
             client = await self._get_client()
             resp = await client.post(
                 f"{self.url}/api/v1/subscribe/search/{mp_id}",
-                headers={"Authorization": self.token},
+                headers=self._headers(),
             )
             return resp.status_code in (200, 204)
         except Exception:

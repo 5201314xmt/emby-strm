@@ -134,14 +134,28 @@ async def test_connection(
         try:
             import httpx
             async with httpx.AsyncClient(timeout=10) as client:
-                # 版本检测
-                resp = await client.get(
-                    f"{mp_url.rstrip('/')}/api/v1/",
-                    headers={"Authorization": mp_token},
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    version_str = data.get("version", "未知")
+                # 兼容不同 MP 版本的认证头
+                headers = {"Authorization": mp_token, "X-API-Key": mp_token}
+
+                # 尝试多个路径检测 MP 可用性
+                mp_ok = False
+                version_str = ""
+                for path in ["/api/v1/", "/api/v1/tmdb/seasons/1399", "/api/v1/subscribe/"]:
+                    try:
+                        resp = await client.get(f"{mp_url.rstrip('/')}{path}", headers=headers)
+                        if resp.status_code == 200:
+                            mp_ok = True
+                            if path == "/api/v1/":
+                                try:
+                                    data = resp.json()
+                                    version_str = data.get("version", "未知")
+                                except Exception:
+                                    pass
+                            break
+                    except Exception:
+                        continue
+
+                if mp_ok:
                     # 解析版本号判断大版本
                     is_v3 = False
                     try:
@@ -156,7 +170,7 @@ async def test_connection(
                     try:
                         tr = await client.get(
                             f"{mp_url.rstrip('/')}/api/v1/tmdb/seasons/1399",
-                            headers={"Authorization": mp_token},
+                            headers=headers,
                         )
                         tmdb_ok = tr.status_code == 200
                     except Exception:
@@ -167,7 +181,7 @@ async def test_connection(
                     try:
                         sr = await client.get(
                             f"{mp_url.rstrip('/')}/api/v1/subscribe/",
-                            headers={"Authorization": mp_token},
+                            headers=headers,
                         )
                         sub_ok = sr.status_code == 200
                     except Exception:
