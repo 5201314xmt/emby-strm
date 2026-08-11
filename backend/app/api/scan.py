@@ -15,20 +15,10 @@ from ..models.scan_job import ScanJob
 from ..utils.helpers import make_response
 from .deps import get_current_user
 
-# TODO Step 4: 替换为 tasks.manager.TaskManager
-# 目前用占位符，返回模拟数据
-_task_manager = None
+# 导入任务管理器单例
+from ..tasks.manager import get_task_manager
 
 router = APIRouter(prefix="/api/scan", tags=["扫描"], dependencies=[Depends(get_current_user)])
-
-
-def _get_or_create_task_manager():
-    """延迟加载 TaskManager（避免循环导入）"""
-    global _task_manager
-    if _task_manager is None:
-        from ..tasks.manager import TaskManager
-        _task_manager = TaskManager()
-    return _task_manager
 
 
 @router.post("/start")
@@ -38,16 +28,27 @@ async def scan_start(request_body: dict = None, db: AsyncSession = Depends(get_d
 
     body: {"source_ids": [1, 2]}  可选，指定要扫描的源（空=全部启用源）
     """
-    mgr = _get_or_create_task_manager()
+    from ..core.app_state import tmdb_source, mp_client, get_auto_subscribe, get_include_specials
+    from ..tasks.manager import get_task_manager
+    mgr = get_task_manager()
     source_ids = (request_body or {}).get("source_ids")
-    job_id = await mgr.start_scan(source_ids=source_ids or None)
-    return make_response(True, data={"job_id": job_id}, message="扫描已开始")
+    try:
+        job_id = await mgr.start_scan(
+            source_ids=source_ids or None,
+            tmdb_source=tmdb_source,
+            mp_client=mp_client,
+            auto_subscribe=get_auto_subscribe(),
+            include_specials=get_include_specials(),
+        )
+        return make_response(True, data={"job_id": job_id}, message="扫描已开始")
+    except RuntimeError as e:
+        return make_response(False, message=str(e))
 
 
 @router.post("/{job_id}/pause")
 async def scan_pause(job_id: int, db: AsyncSession = Depends(get_db)):
     """暂停扫描"""
-    mgr = _get_or_create_task_manager()
+    mgr = get_task_manager()
     ok, msg = await mgr.pause(job_id)
     return make_response(ok, message=msg)
 
@@ -55,7 +56,7 @@ async def scan_pause(job_id: int, db: AsyncSession = Depends(get_db)):
 @router.post("/{job_id}/resume")
 async def scan_resume(job_id: int, db: AsyncSession = Depends(get_db)):
     """继续扫描"""
-    mgr = _get_or_create_task_manager()
+    mgr = get_task_manager()
     ok, msg = await mgr.resume(job_id)
     return make_response(ok, message=msg)
 
@@ -63,7 +64,7 @@ async def scan_resume(job_id: int, db: AsyncSession = Depends(get_db)):
 @router.post("/{job_id}/cancel")
 async def scan_cancel(job_id: int, db: AsyncSession = Depends(get_db)):
     """取消扫描"""
-    mgr = _get_or_create_task_manager()
+    mgr = get_task_manager()
     ok, msg = await mgr.cancel(job_id)
     return make_response(ok, message=msg)
 

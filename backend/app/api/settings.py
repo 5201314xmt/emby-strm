@@ -105,9 +105,11 @@ async def save_settings(
 
     await db.commit()
 
-    # 刷新内存中的配置（让新设置立即生效）
-    # 注意：pydantic-settings 从环境变量读取，数据库配置需要运行时手动处理
-    # 这里通知外部重新加载 TMDB 客户端等
+    # 热更新内存中的客户端实例
+    from ..core.app_state import reload_clients
+    reload_clients()
+    from ..services.logger import add_log
+    await add_log("INFO", "system", "设置已保存，客户端已重新加载")
 
     return make_response(True, message=f"已保存 {saved_count} 项设置")
 

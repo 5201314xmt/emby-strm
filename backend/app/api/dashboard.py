@@ -118,7 +118,7 @@ async def get_dashboard(db: AsyncSession = Depends(get_db)):
             "started_at": sj.started_at.strftime("%Y-%m-%d %H:%M:%S") if sj.started_at else None,
             "duration_seconds": duration,
             "show_count": sj.done_shows or 0,
-            "missing_count": 0,  # 在 scan_job 里不存，后续可扩展
+            "missing_count": sj.missing_count or 0,
         })
 
     return make_response(success=True, data={

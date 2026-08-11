@@ -216,8 +216,14 @@ async def run_scan(job_id: int, tmdb_source: TMDBSource, mp_client,
                     await db.commit()
 
         # ---- 完成 ----
+        from sqlalchemy import text as sa_text
+        async with AsyncSessionLocal() as db:
+            miss_result = await db.execute(
+                sa_text("SELECT COALESCE(SUM(json_array_length(seasons.missing_episodes)), 0) FROM seasons WHERE seasons.missing_episodes != '[]'")
+            )
+            total_missing = miss_result.scalar() or 0
         await _update(100, phase="扫描完成", status="completed",
-                     completed_at=datetime.now())
+                     completed_at=datetime.now(), missing_count=total_missing)
         await event_bus.publish(EventType.SCAN_COMPLETED, {
             "job_id": job_id, "show_count": total_shows,
         })

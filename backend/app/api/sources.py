@@ -122,10 +122,23 @@ async def check_source(
         else:
             return make_response(False, message=f"目录不存在: {source.path}")
     elif source.type == "emby":
-        # TODO Step 3+: 测试 Emby 连接
         if not source.emby_url or not source.emby_api_key:
             return make_response(False, message="Emby 地址或 API Key 未填写")
-        return make_response(True, message="Emby 连接正常（TODO: 真实测试）")
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    f"{source.emby_url.rstrip('/')}/emby/System/Info",
+                    headers={"X-Emby-Token": source.emby_api_key},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    server_name = data.get("ServerName", "未知服务器")
+                    version = data.get("Version", "")
+                    return make_response(True, message=f"Emby 连接成功（{server_name} v{version}）")
+                return make_response(False, message=f"Emby 返回异常状态码：{resp.status_code}")
+        except Exception as e:
+            return make_response(False, message=f"Emby 连接失败：{e}")
 
     return make_response(False, message="未知的源类型")
 

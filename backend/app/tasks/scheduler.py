@@ -75,10 +75,16 @@ async def _scheduler_loop():
 
             elapsed = (datetime.now() - last_scan).total_seconds()
             if elapsed >= interval_hours * 3600:
-                # 触发扫描
-                from .manager import TaskManager
-                mgr = TaskManager()
-                await mgr.start_scan()
+                # 触发扫描（使用全局单例和共享实例）
+                from .manager import get_task_manager
+                from ..core.app_state import tmdb_source, mp_client, get_auto_subscribe, get_include_specials
+                mgr = get_task_manager()
+                await mgr.start_scan(
+                    tmdb_source=tmdb_source,
+                    mp_client=mp_client,
+                    auto_subscribe=get_auto_subscribe(),
+                    include_specials=get_include_specials(),
+                )
                 print(f"[调度器] 自动扫描已触发（距离上次 {interval_hours} 小时）")
 
         except asyncio.CancelledError:

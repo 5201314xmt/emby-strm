@@ -45,6 +45,7 @@ class ScanJob(Base):
 
     # ========== 结果 ==========
     error_message = Column(Text, comment="失败时的错误信息")
+    missing_count = Column(Integer, default=0, comment="发现的缺集总数")
     auto_subscribed = Column(Integer, default=0, comment="本次自动订阅了多少季")
 
     # ========== 时间戳 ==========

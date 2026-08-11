@@ -263,8 +263,35 @@ async def subscribe_season(
     body = await request.json() or {}
     season = int(body.get("season", 1))
 
-    # TODO: 调用 services/subscription.py 的 create_subscription
-    return make_response(True, message=f"订阅请求已提交：TMDB:{tmdb_id} S{season}")
+    from ..core.app_state import mp_client
+    show = await db.get(Show, tmdb_id)
+    name = show.name if show else f"TMDB:{tmdb_id}"
+    year = show.year if show else ""
+    srow = await db.scalar(
+        select(Season).where(Season.tmdb_id == tmdb_id, Season.season_number == season)
+    )
+    total_ep = srow.aired_episodes if srow else 24
+
+    if not mp_client.is_configured:
+        return make_response(False, message="请先在设置页填写 MoviePilot 地址和 API Token")
+
+    ok, data = await mp_client.create_subscribe(name, year, tmdb_id, season, total_ep)
+    if not ok:
+        if "已在订阅" in str(data):
+            db.add(Subscription(tmdb_id=tmdb_id, season=season, name=name, state="R"))
+            await db.commit()
+            return make_response(False, message="已在订阅中")
+        return make_response(False, message=str(data))
+
+    mp_id = data if isinstance(data, int) else None
+    db.add(Subscription(tmdb_id=tmdb_id, season=season, mp_id=mp_id, name=name, state="R"))
+    await db.commit()
+    if mp_id:
+        try:
+            await mp_client.search_subscribe(mp_id)
+        except Exception:
+            pass
+    return make_response(True, message=f"订阅成功：《{name}》第 {season} 季")
 
 
 @router.post("/{tmdb_id}/ignore")
@@ -337,8 +364,42 @@ async def batch_subscribe(
     if not items:
         return make_response(False, message="没有选择要订阅的季")
 
-    # TODO: 调用订阅服务批量创建
-    return make_response(True, message=f"批量订阅已提交，共 {len(items)} 项")
+    from ..core.app_state import mp_client
+    if not mp_client.is_configured:
+        return make_response(False, message="请先在设置页填写 MoviePilot 地址和 API Token")
+
+    ok_count, fail_count = 0, 0
+    for it in items:
+        try:
+            tmdb_id = int(it.get("tmdb_id"))
+            season = int(it.get("season"))
+        except (TypeError, ValueError):
+            fail_count += 1; continue
+
+        show = await db.get(Show, tmdb_id)
+        name = show.name if show else f"TMDB:{tmdb_id}"
+        year = show.year if show else ""
+        srow = await db.scalar(
+            select(Season).where(Season.tmdb_id == tmdb_id, Season.season_number == season)
+        )
+        total_ep = srow.aired_episodes if srow else 24
+        existing = await db.scalar(
+            select(Subscription).where(Subscription.tmdb_id == tmdb_id, Subscription.season == season)
+        )
+        if existing: continue
+        ok, data = await mp_client.create_subscribe(name, year, tmdb_id, season, total_ep)
+        if ok:
+            mp_id = data if isinstance(data, int) else None
+            db.add(Subscription(tmdb_id=tmdb_id, season=season, mp_id=mp_id, name=name, state="R"))
+            ok_count += 1
+            if mp_id:
+                try: await mp_client.search_subscribe(mp_id)
+                except Exception: pass
+        else:
+            if "已在订阅" not in str(data): fail_count += 1
+
+    await db.commit()
+    return make_response(True, message=f"完成！成功订阅 {ok_count} 个季" + (f"，{fail_count} 个失败" if fail_count else ""))
 
 
 @router.post("/batch/ignore")

@@ -10,8 +10,10 @@
 """
 import os
 import asyncio
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
+from collections import defaultdict
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -55,6 +57,11 @@ async def lifespan(app: FastAPI):
     _sync_eng.dispose()
     print("[启动] 数据库表已就绪")
 
+    # 初始化全局客户端（MoviePilot + TMDB）
+    from .core.app_state import init_clients
+    init_clients()
+    print("[启动] 客户端已初始化")
+
     # 启动定时扫描调度器
     from .tasks.scheduler import start_scheduler, stop_scheduler
     await start_scheduler()
@@ -77,6 +84,31 @@ app = FastAPI(
 # ========== 注册路由 ==========
 app.include_router(api_router)
 app.include_router(ws_router)
+
+# ========== 速率限制中间件 ==========
+# 对登录/设置密码接口限制频率（防暴力破解）
+_RATE_LIMIT_WINDOW = 60         # 60 秒窗口
+_RATE_LIMIT_MAX = 10            # 窗口内最多 10 次
+_rate_limit_buckets: dict[str, list[float]] = defaultdict(list)
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """登录接口速率限制"""
+    path = request.url.path
+    if path not in ("/api/auth/login", "/api/auth/setup"):
+        return await call_next(request)
+
+    ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    # 清理过期记录
+    _rate_limit_buckets[ip] = [t for t in _rate_limit_buckets[ip] if now - t < _RATE_LIMIT_WINDOW]
+    if len(_rate_limit_buckets[ip]) >= _RATE_LIMIT_MAX:
+        return JSONResponse(
+            status_code=429,
+            content={"success": False, "message": "请求过于频繁，请稍后重试", "data": None},
+        )
+    _rate_limit_buckets[ip].append(now)
+    return await call_next(request)
 
 # ========== 认证中间件 ==========
 @app.middleware("http")
