@@ -41,9 +41,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
 
       {/* 根路径 → 仪表盘 */}
-      <Route path="/" element={
-        <ProtectedRoute><AppShell /></ProtectedRoute>
-      } />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
       {/* 需要登录的应用页面 */}
       <Route

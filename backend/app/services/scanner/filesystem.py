@@ -184,14 +184,19 @@ def _parse_one_file(root: str, parts: list, file_path: str,
       3. 找季号（文件名优先，其次目录名）
       4. 汇总到 result.shows
     """
-    # 1. 找 TMDB 编号
+    # 1. 找 TMDB 编号，同时记录哪个路径段包含 TMDB 标记（用作剧名）
     tmdb_id = None
+    tmdb_part = None
     for part in parts[:-1]:
         tmdb_id = find_tmdb_id(part)
         if tmdb_id:
+            tmdb_part = part
             break
     if tmdb_id is None:
         tmdb_id = find_tmdb_id(parts[-1])
+        if tmdb_id:
+            # TMDB 在文件名里 — 取倒数第二个目录段作为剧名（或第一个）
+            tmdb_part = parts[-2] if len(parts) > 1 else parts[-1]
 
     if tmdb_id is None:
         result.unrecognized.append({
@@ -239,7 +244,7 @@ def _parse_one_file(root: str, parts: list, file_path: str,
     })
     show["source_ids"].add(source_id)
     if not show["name"]:
-        folder = parts[0] if len(parts) > 1 else parts[-1]
+        folder = tmdb_part if tmdb_part else (parts[0] if len(parts) > 1 else parts[-1])
         show["name"] = clean_show_name(folder)
     season_set = show["seasons"].setdefault(season, [])
     for ep in episodes:

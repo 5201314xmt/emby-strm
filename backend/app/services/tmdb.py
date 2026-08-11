@@ -15,7 +15,7 @@ TMDB 数据源服务 —— 三级缓存获取剧集信息
   无旧缓存 → 返回 None（该季参与缺集计算失败，标记为 error）
 """
 import json
-import threading
+import asyncio
 import time
 from datetime import datetime, date
 
@@ -52,7 +52,7 @@ class TMDBSource:
         self.mode = "auto"          # auto → proxy/direct/none
         self.mode_checked = False
         self._mem_cache: dict[str, tuple[float, any]] = {}
-        self._lock = threading.Lock()
+        self._lock = asyncio.Lock()
         self._tmdb_http: httpx.Client | None = None
 
     # ========== 探测数据源 ==========
@@ -126,7 +126,7 @@ class TMDBSource:
                 result = await db.execute(delete(TMDBCache))
             await db.commit()
             count = result.rowcount
-        with self._lock:
+        async with self._lock:
             self._mem_cache.clear()
         return count
 
@@ -139,7 +139,7 @@ class TMDBSource:
         now = time.time()
 
         # 1. 内存缓存
-        with self._lock:
+        async with self._lock:
             hit = self._mem_cache.get(key)
             if hit and now - hit[0] < _CACHE_TTL:
                 return hit[1], False
@@ -147,7 +147,7 @@ class TMDBSource:
         # 2. 磁盘缓存
         cached_obj, cached_ts = await self._load_cache(tmdb_id, season, from_json)
         if cached_obj is not None and cached_ts is not None and now - cached_ts < _CACHE_TTL:
-            with self._lock:
+            async with self._lock:
                 self._mem_cache[key] = (time.time(), cached_obj)
             return cached_obj, False
 
@@ -161,14 +161,14 @@ class TMDBSource:
         if data is not None:
             # 成功 → 写入磁盘缓存
             await self._save_cache(tmdb_id, season, to_json(data))
-            with self._lock:
+            async with self._lock:
                 self._mem_cache[key] = (time.time(), data)
             return data, False
 
         # 4. 网络失败 → 退回旧缓存
         if cached_obj is not None:
             await add_log("WARN", "scan", f"TMDB 查询失败，使用旧缓存（数据可能不是最新）：{key}")
-            with self._lock:
+            async with self._lock:
                 self._mem_cache[key] = (time.time(), cached_obj)
             return cached_obj, True
 

@@ -228,11 +228,11 @@ class MoviePilotClient:
                 )
                 sub = result.scalar_one_or_none()
                 if sub:
-                    # 更新状态
                     sub.state = item.get("state", sub.state)
                     sub.name = item.get("name", sub.name)
-                    await db.commit()
                     count += 1
+            if count > 0:
+                await db.commit()
         return count
 
     async def close(self):

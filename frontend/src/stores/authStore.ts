@@ -19,8 +19,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   checkStatus: async () => {
     try {
       const res = await api.get('/auth/status')
-      const data = res.data.data
-      set({ initialized: data.initialized, loggedIn: data.logged_in, loading: false })
+      if (res.data?.data) {
+        const data = res.data.data
+        set({ initialized: data.initialized, loggedIn: data.logged_in, loading: false })
+      } else {
+        set({ loading: false })
+      }
     } catch {
       set({ loading: false })
     }

@@ -32,13 +32,15 @@ async def scan_start(request_body: dict = None, db: AsyncSession = Depends(get_d
     from ..tasks.manager import get_task_manager
     mgr = get_task_manager()
     source_ids = (request_body or {}).get("source_ids")
+    auto_sub = await get_auto_subscribe()
+    inc_specials = await get_include_specials()
     try:
         job_id = await mgr.start_scan(
             source_ids=source_ids or None,
             tmdb_source=tmdb_source,
             mp_client=mp_client,
-            auto_subscribe=get_auto_subscribe(),
-            include_specials=get_include_specials(),
+            auto_subscribe=auto_sub,
+            include_specials=inc_specials,
         )
         return make_response(True, data={"job_id": job_id}, message="扫描已开始")
     except RuntimeError as e:

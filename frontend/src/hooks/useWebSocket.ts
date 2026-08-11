@@ -26,5 +26,5 @@ export function useWebSocketEvents(handlers: Record<string, (data: any) => void>
       wsClient.on(event, fn)
     )
     return () => { unsubs.forEach((unsub) => { unsub(); }); }
-  }, [])
+  }, [handlers])
 }

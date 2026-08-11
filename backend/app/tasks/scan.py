@@ -340,9 +340,10 @@ async def _auto_subscribe(mp_client) -> int:
     """自动订阅所有缺集（跳过已订阅/已忽略/degraded）"""
     count = 0
     async with AsyncSessionLocal() as db:
-        # 获取已订阅 (tmdb_id, season) 集合
+        # ... [existing imports and queries remain] ...
         from ..models.subscription import Subscription
         from ..models.ignored import Ignored
+        from ..models.show import Show
         sub_result = await db.execute(select(Subscription.tmdb_id, Subscription.season))
         subscribed = {(r[0], r[1]) for r in sub_result.all()}
         ign_result = await db.execute(select(Ignored.tmdb_id, Ignored.season))
@@ -356,6 +357,7 @@ async def _auto_subscribe(mp_client) -> int:
         )
         seasons = season_result.scalars().all()
 
+        search_ids = []
         for s in seasons:
             key = (s.tmdb_id, s.season_number)
             if key in subscribed or key in ignored or (s.tmdb_id, -1) in ignored:
@@ -377,6 +379,13 @@ async def _auto_subscribe(mp_client) -> int:
                 ))
                 count += 1
                 if mp_id:
-                    await mp_client.search_subscribe(mp_id)
+                    search_ids.append(mp_id)
         await db.commit()
+
+    # 网络调用移出 DB 事务
+    for mp_id in search_ids:
+        try:
+            await mp_client.search_subscribe(mp_id)
+        except Exception:
+            pass
     return count

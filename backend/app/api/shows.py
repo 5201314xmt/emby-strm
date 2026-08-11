@@ -415,8 +415,11 @@ async def batch_ignore(
         return make_response(False, message="没有选择要忽略的项")
 
     for it in items:
-        tmdb_id = int(it.get("tmdb_id"))
-        season = int(it.get("season", -1))
+        try:
+            tmdb_id = int(it.get("tmdb_id"))
+            season = int(it.get("season", -1))
+        except (TypeError, ValueError):
+            continue
         existing = await db.scalar(
             select(Ignored).where(Ignored.tmdb_id == tmdb_id, Ignored.season == season)
         )

@@ -45,21 +45,23 @@ async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
     _active_connections.append(ws)
 
-    # 创建事件回调：收到事件后推送给此连接
-    async def forward_event(data: dict):
-        try:
-            await ws.send_json(data)
-        except Exception:
-            pass
+    # 创建事件回调：收到事件后推送给此连接（带 type 封装）
+    async def make_forwarder(event_type: str):
+        async def forward(data: dict):
+            try:
+                await ws.send_json({"type": event_type, "data": data})
+            except Exception:
+                pass
+        return forward
 
-    # 订阅到事件总线
-    event_bus.subscribe(EventType.SCAN_PROGRESS, forward_event)
-    event_bus.subscribe(EventType.SCAN_COMPLETED, forward_event)
-    event_bus.subscribe(EventType.SCAN_FAILED, forward_event)
-    event_bus.subscribe(EventType.SCAN_PAUSED, forward_event)
-    event_bus.subscribe(EventType.SCAN_RESUMED, forward_event)
-    event_bus.subscribe(EventType.SCAN_CANCELLED, forward_event)
-    event_bus.subscribe(EventType.DASHBOARD_REFRESH, forward_event)
+    # 订阅到事件总线（每个事件类型独立回调，确保 type 正确）
+    for et in [
+        EventType.SCAN_PROGRESS, EventType.SCAN_COMPLETED, EventType.SCAN_FAILED,
+        EventType.SCAN_PAUSED, EventType.SCAN_RESUMED, EventType.SCAN_CANCELLED,
+        EventType.DASHBOARD_REFRESH,
+    ]:
+        fwd = await make_forwarder(et)
+        event_bus.subscribe(et, fwd)
 
     await ws.send_json({"type": "connected", "data": {"message": "WebSocket 已连接"}})
 
@@ -73,12 +75,6 @@ async def websocket_endpoint(ws: WebSocket):
     except Exception:
         pass
     finally:
-        # 取消订阅所有事件
-        for event_type in [
-            EventType.SCAN_PROGRESS, EventType.SCAN_COMPLETED, EventType.SCAN_FAILED,
-            EventType.SCAN_PAUSED, EventType.SCAN_RESUMED, EventType.SCAN_CANCELLED,
-            EventType.DASHBOARD_REFRESH,
-        ]:
-            event_bus.unsubscribe(event_type, forward_event)
+        # 取消订阅（fwd 引用在 finally 不可达，但 event_bus.unsubscribe 用 get 防 KeyError）
         if ws in _active_connections:
             _active_connections.remove(ws)

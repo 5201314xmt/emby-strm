@@ -27,24 +27,31 @@ def reload_clients():
     global mp_client, tmdb_source
     if mp_client:
         try:
-            import asyncio
-            loop = None
-            try:
-                loop.run_until_complete(mp_client.close())
-            except RuntimeError:
-                # 如果当前没有事件循环（同步上下文），忽略
-                pass
+            import asyncio as _aio
+            _aio.run(mp_client.close())
         except Exception:
             pass
     mp_client = MoviePilotClient()
     tmdb_source = TMDBSource(mp_client, app_settings.tmdb_key, app_settings.tmdb_lang)
 
 
-def get_auto_subscribe() -> bool:
-    """读取自动订阅开关"""
-    return app_settings.auto_subscribe
+async def get_auto_subscribe() -> bool:
+    """从数据库读取自动订阅开关（非环境变量缓存）"""
+    from ..core.database import AsyncSessionLocal
+    from ..models.setting import Setting
+    from sqlalchemy import select
+    async with AsyncSessionLocal() as db:
+        r = await db.execute(select(Setting.value).where(Setting.key == "auto_subscribe"))
+        row = r.scalar_one_or_none()
+        return row == "1" if row else False
 
 
-def get_include_specials() -> bool:
-    """读取是否包含特别篇"""
-    return app_settings.include_specials
+async def get_include_specials() -> bool:
+    """从数据库读取是否包含特别篇（非环境变量缓存）"""
+    from ..core.database import AsyncSessionLocal
+    from ..models.setting import Setting
+    from sqlalchemy import select
+    async with AsyncSessionLocal() as db:
+        r = await db.execute(select(Setting.value).where(Setting.key == "include_specials"))
+        row = r.scalar_one_or_none()
+        return row == "1" if row else False

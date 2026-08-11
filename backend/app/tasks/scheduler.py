@@ -82,8 +82,8 @@ async def _scheduler_loop():
                 await mgr.start_scan(
                     tmdb_source=tmdb_source,
                     mp_client=mp_client,
-                    auto_subscribe=get_auto_subscribe(),
-                    include_specials=get_include_specials(),
+                    auto_subscribe=await get_auto_subscribe(),
+                    include_specials=await get_include_specials(),
                 )
                 print(f"[调度器] 自动扫描已触发（距离上次 {interval_hours} 小时）")
 
