@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>缺集管家 - 安装向导</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="setup-wrap">
+  <div class="setup-card">
+    <div class="logo" style="text-align:center">缺集管家</div>
+    <div class="setup-step-bar">
+      <div class="setup-step active" id="stepBar1">1. 设置密码</div>
+      <div class="setup-step" id="stepBar2">2. 连接 MoviePilot</div>
+      <div class="setup-step" id="stepBar3">3. 媒体目录</div>
+      <div class="setup-step" id="stepBar4">4. 完成</div>
+    </div>
+
+    <!-- ===== 步骤1：设置密码 ===== -->
+    <div class="setup-page active" id="page1">
+      <h2>设置管理员密码</h2>
+      <p class="muted">这个密码用来登录缺集管家，请牢记（至少 6 位）</p>
+      <div class="form-line">
+        <label>密码</label>
+        <input type="password" id="pwd" placeholder="设置登录密码">
+      </div>
+      <div class="form-line">
+        <label>确认密码</label>
+        <input type="password" id="pwd2" placeholder="再输入一遍">
+      </div>
+      <div id="err1" class="login-err"></div>
+      <button class="btn big" id="btn1">下一步</button>
+    </div>
+
+    <!-- ===== 步骤2：MoviePilot ===== -->
+    <div class="setup-page" id="page2">
+      <h2>连接 MoviePilot</h2>
+      <p class="muted">MoviePilot 用来下载补全缺的集。地址和 Token 在 MoviePilot 网页的「设置 → 安全」里找</p>
+      <div class="form-line">
+        <label>MoviePilot 地址</label>
+        <input type="text" id="mp_url" placeholder="例：http://192.168.1.100:3000">
+      </div>
+      <div class="form-line">
+        <label>MoviePilot API Token</label>
+        <input type="password" id="mp_token" placeholder="MoviePilot 设置 → 安全 → API令牌">
+      </div>
+      <div id="testResult2" class="test-result"></div>
+      <div class="flex" style="gap:10px">
+        <button class="btn ghost" id="btnTest2">测试连接</button>
+        <button class="btn big" id="btn2">下一步</button>
+      </div>
+    </div>
+
+    <!-- ===== 步骤3：媒体目录 ===== -->
+    <div class="setup-page" id="page3">
+      <h2>选择媒体目录</h2>
+      <p class="muted">
+        填写你的 strm 文件目录。注意填的是<strong>容器内的路径</strong>（启动时挂载的 /media），
+        不是电脑上的路径。多个目录每行一个。
+      </p>
+      <div class="form-line">
+        <label>strm 文件目录（每行一个）</label>
+        <textarea id="scan_paths" placeholder="/media&#10;/media2"></textarea>
+      </div>
+      <div class="form-line">
+        <label>或者用 Emby 扫描（可选，不挂载目录时用）</label>
+        <input type="text" id="emby_url" placeholder="例：http://192.168.1.100:8096">
+        <input type="password" id="emby_key" style="margin-top:8px" placeholder="Emby API Key（Emby 设置 → 高级 → API密钥）">
+      </div>
+      <div id="testResult3" class="test-result"></div>
+      <div class="flex" style="gap:10px">
+        <button class="btn ghost" id="btnCheckPath">检查目录</button>
+        <button class="btn big" id="btn3">下一步</button>
+      </div>
+    </div>
+
+    <!-- ===== 步骤4：完成 ===== -->
+    <div class="setup-page" id="page4">
+      <h2>全部设置完成！</h2>
+      <p class="muted">下面可以开始第一次扫描了。扫描需要几分钟，可以先去喝杯茶。</p>
+      <button class="btn big" id="btnFinish">保存并开始扫描</button>
+    </div>
+  </div>
+</div>
+
+<script src="setup.js"></script>
+</body>
+</html>

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>缺集管家</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ===== 顶栏 ===== -->
+<header>
+  <div class="logo">缺集管家</div>
+  <nav>
+    <button class="tab active" data-tab="home">概览</button>
+    <button class="tab" data-tab="missing">缺集列表 <span id="badgeMissing" class="badge hide">0</span></button>
+    <button class="tab" data-tab="subs">订阅管理</button>
+    <button class="tab" data-tab="settings">设置</button>
+    <button class="tab" data-tab="logs">日志</button>
+    <button id="btnLogout" class="btn ghost small" style="margin-left:auto">退出登录</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ==================== 概览页 ==================== -->
+  <section id="page-home" class="page active">
+
+    <!-- 首次使用引导（配置不齐全时显示） -->
+    <div id="banner" class="banner" style="display:none">
+      <h2>欢迎使用缺集管家！</h2>
+      <p>只需三步就能开始：</p>
+      <ol>
+        <li>到「设置」页填写 <b>MoviePilot 地址和 API Token</b></li>
+        <li>填写你的 <b>strm 文件目录</b>（或 Emby 地址）</li>
+        <li>回到这里点「开始扫描」</li>
+      </ol>
+      <p class="muted mt8">详细说明见 README 或设置页的提示文字</p>
+    </div>
+
+    <!-- 统计数字 -->
+    <div class="stats" id="stats"></div>
+
+    <!-- 扫描操作区 -->
+    <div class="card" style="text-align:center">
+      <button id="btnScan" class="btn big">开始扫描</button>
+      <div class="progress-wrap" id="scanProgress" style="display:none">
+        <div class="progress-bar"><div class="progress-fill" id="scanFill"></div></div>
+        <div class="progress-text" id="scanText"></div>
+      </div>
+      <div class="muted mt8" id="scanInfo"></div>
+    </div>
+
+    <!-- 自动化开关 -->
+    <div class="card">
+      <h2>自动化（可选，懒人模式）</h2>
+      <div class="switch-line">
+        <div class="switch" id="swAutoScan"></div>
+        <div>
+          <b>自动扫描</b><br>
+          <span class="muted">每隔一段时间自动扫描一次，发现新缺集</span>
+        </div>
+      </div>
+      <div class="switch-line">
+        <div class="switch" id="swAutoSub"></div>
+        <div>
+          <b>自动订阅</b><br>
+          <span class="muted">扫描后自动把缺的集提交给 MoviePilot 下载（打开前请先确认订阅没问题）</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 一键订阅全部 -->
+    <div class="card danger-zone">
+      <h2>一键订阅所有缺集</h2>
+      <p class="muted">把当前所有缺的集（未订阅、未忽略的）一次性提交给 MoviePilot。适合想省事的用户。</p>
+      <div class="flex mt8">
+        <button id="btnSubAll" class="btn green">订阅所有缺集</button>
+        <button id="btnSubPreview" class="btn ghost">先看看要订阅什么</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 缺集列表页 ==================== -->
+  <section id="page-missing" class="page">
+    <div class="chips" id="filterChips">
+      <button class="chip active" data-filter="all">全部</button>
+      <button class="chip" data-filter="partial">缺集补全</button>
+      <button class="chip" data-filter="full_missing">整季缺失</button>
+      <button class="chip" data-filter="complete">已完整</button>
+      <button class="chip" data-filter="ignored">已忽略</button>
+      <button class="chip" data-filter="error">识别异常</button>
+      <button class="chip" data-filter="unrecognized">未识别文件</button>
+    </div>
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="搜索剧名...">
+    </div>
+    <div id="missingList"></div>
+    <div class="flex" style="justify-content:center;margin-top:14px">
+      <button id="btnLoadMore" class="btn ghost" style="display:none">加载更多</button>
+      <span class="muted" id="loadMoreInfo"></span>
+    </div>
+  </section>
+
+  <!-- ==================== 订阅管理页 ==================== -->
+  <section id="page-subs" class="page">
+    <div class="flex" style="margin-bottom:12px">
+      <button id="btnSubsRefresh" class="btn">刷新订阅列表</button>
+      <span class="muted" id="subsInfo"></span>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>剧名</th><th>季</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody id="subsBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 设置页 ==================== -->
+  <section id="page-settings" class="page">
+    <div class="card">
+      <h2>MoviePilot 连接</h2>
+      <div class="form-line">
+        <label>MoviePilot 地址</label>
+        <input type="text" id="set_mp_url" placeholder="例：http://192.168.1.100:3000">
+      </div>
+      <div class="form-line">
+        <label>MoviePilot API Token</label>
+        <input type="password" id="set_mp_token" placeholder="MoviePilot 设置 → 安全 → API令牌">
+        <div class="hint">在 MoviePilot 网页的「设置 → 安全」里可以看到，把它复制过来。显示 ****** 开头表示保持原样不动</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>媒体库来源（二选一，推荐用 strm 目录）</h2>
+      <div class="form-line">
+        <label>strm 文件目录（每行一个，用容器内的路径）</label>
+        <textarea id="set_scan_paths" placeholder="/media&#10;/media2"></textarea>
+        <div class="hint">就是 docker-compose.yml 里挂载进容器的路径，比如 /media</div>
+      </div>
+      <div class="form-line">
+        <label>Emby 地址（可选，不挂载目录时用）</label>
+        <input type="text" id="set_emby_url" placeholder="例：http://192.168.1.100:8096">
+      </div>
+      <div class="form-line">
+        <label>Emby API Key（可选）</label>
+        <input type="password" id="set_emby_api_key" placeholder="Emby 设置 → 高级 → API 密钥">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>扫描设置</h2>
+      <div class="form-line">
+        <label>自动扫描间隔（小时）</label>
+        <input type="number" id="set_scan_interval" min="1" max="168">
+      </div>
+      <div class="switch-line">
+        <div class="switch" id="swAutoScanSet"></div>
+        <div><b>自动扫描</b> <span class="muted">到时间自动扫描媒体库</span></div>
+      </div>
+      <div class="switch-line">
+        <div class="switch" id="swAutoSubSet"></div>
+        <div><b>扫描后自动订阅缺集</b> <span class="muted">自动把缺的集交给 MoviePilot</span></div>
+      </div>
+      <div class="switch-line">
+        <div class="switch" id="swSpecials"></div>
+        <div><b>检测特别篇（S00）</b> <span class="muted">一般不用开</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>TMDB 数据（备用）</h2>
+      <div class="form-line">
+        <label>TMDB API Key（可选）</label>
+        <input type="password" id="set_tmdb_key" placeholder="MoviePilot v3 不需要填">
+        <div class="hint">只有 MoviePilot 老版本（不支持 TMDB 代理）时才需要</div>
+      </div>
+      <div class="form-line">
+        <label>TMDB 语言</label>
+        <input type="text" id="set_tmdb_lang" value="zh-CN">
+      </div>
+      <div class="form-line">
+        <label>TMDB 数据缓存</label>
+        <button id="btnClearCache" class="btn ghost small">清空 TMDB 缓存</button>
+        <div class="hint">剧集有更新（比如新一集播出但扫描没发现）时点这里，下次扫描会重新获取最新数据</div>
+      </div>
+    </div>
+
+    <div class="form-btns">
+      <button id="btnSettingsSave" class="btn">保存设置</button>
+      <button id="btnSettingsTest" class="btn ghost">测试连接</button>
+    </div>
+    <div id="testResult"></div>
+
+    <div class="card" style="margin-top:16px">
+      <h2>修改密码</h2>
+      <div class="form-line">
+        <label>当前密码</label>
+        <input type="password" id="set_old_pwd" placeholder="输入当前密码">
+      </div>
+      <div class="form-line">
+        <label>新密码（至少 6 位）</label>
+        <input type="password" id="set_new_pwd" placeholder="输入新密码">
+      </div>
+      <button id="btnChangePwd" class="btn">修改密码</button>
+    </div>
+  </section>
+
+  <!-- ==================== 日志页 ==================== -->
+  <section id="page-logs" class="page">
+    <div class="flex" style="margin-bottom:12px">
+      <button id="btnLogsClear" class="btn red small">清空日志</button>
+      <span class="muted">日志每 5 秒自动刷新</span>
+    </div>
+    <div class="card">
+      <table>
+        <tbody id="logsBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<!-- 提示消息容器 -->
+<div id="toast"></div>
+
+<!-- 确认弹窗（预览订阅用） -->
+<div id="modalMask" class="modal-mask" style="display:none">
+  <div class="modal">
+    <h2 id="modalTitle">订阅预览</h2>
+    <div id="modalBody" class="modal-body"></div>
+    <div class="flex" style="justify-content:flex-end;gap:10px;margin-top:14px">
+      <button id="modalCancel" class="btn ghost">取消</button>
+      <button id="modalConfirm" class="btn green">确认订阅</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
