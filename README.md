@@ -1,8 +1,9 @@
-# 缺集管家 v2.0
+# 缺集管家 v2.3
 
 自动扫描 STRM/Emby 媒体库 → 对比 TMDB 计算缺集 → 一键提交 MoviePilot 补全。
 
-**Docker 一条命令部署 | 暗色 MoviePilot 风格面板 | 模块化前后端**
+**Docker 一条命令部署 | MoviePilot 风格暗色面板 | 模块化前后端**
+**兼容 MoviePilot V1/V2/V3 | 网页配置热更新无需重启**
 
 ---
 
@@ -118,6 +119,9 @@ A：不会。MoviePilot 会跳过已有集；本地记录避免重复提交。
 
 **Q：TMDB 故障时会不会批量误订阅？**  
 A：不会。故障数据标记 `degraded`，自动订阅跳过这些季。手动订阅会提示风险。
+
+**Q：支持 MoviePilot 哪些版本？**  
+A：V1/V2/V3 均可。探测自动适配（多端点尝试），认证自动兼容（`Authorization` + `X-API-Key` 同时发送）。V1/V2 需在设置页填写 TMDB API Key。
 
 **Q：忘了密码？**  
 A：执行：
