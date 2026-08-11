@@ -47,6 +47,7 @@ export default function MissingPage() {
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [batchLoading, setBatchLoading] = useState(false)
   const [selectedSource, setSelectedSource] = useState<string>(
     searchParams.get('status') || 'partial'
   )
@@ -119,8 +120,12 @@ export default function MissingPage() {
   const handleSubscribe = async (tmdbId: number, season: number) => {
     try {
       const res = await api.post(`/shows/${tmdbId}/subscribe`, { season })
-      toast.success(res.data.message || '订阅已提交')
-      fetchShows()
+      if (res.data.success) {
+        toast.success(res.data.message || '订阅已提交')
+        fetchShows()
+      } else {
+        toast.error(res.data.message || '订阅失败')
+      }
     } catch (e: any) {
       toast.error(e?.response?.data?.message || '订阅失败')
     }
@@ -129,40 +134,65 @@ export default function MissingPage() {
   const handleIgnore = async (tmdbId: number, season: number, scope: string) => {
     try {
       const res = await api.post(`/shows/${tmdbId}/ignore`, { season })
-      toast.success(res.data.message || `已忽略${scope}`)
-      fetchShows()
+      if (res.data.success) {
+        toast.success(res.data.message || `已忽略${scope}`)
+        fetchShows()
+      } else {
+        toast.error(res.data.message || '操作失败')
+      }
     } catch (e: any) {
       toast.error(e?.response?.data?.message || '操作失败')
     }
   }
 
   const handleBatchSubscribe = async () => {
+    setBatchLoading(true)
     const items = Array.from(selected).map((k) => {
       const [tmdbId, season] = k.split(':').map(Number)
       return { tmdb_id: tmdbId, season }
     })
     try {
       const res = await api.post('/shows/batch/subscribe', { items })
-      toast.success(res.data.message || '批量订阅已提交')
+      if (res.data.success) {
+        const d = res.data.data || {}
+        toast.success(res.data.message || '批量订阅已提交')
+        if (d.fail_msgs && d.fail_msgs.length > 0) {
+          d.fail_msgs.slice(0, 3).forEach((m: string) => toast.error(m))
+          if (d.fail_msgs.length > 3) toast.error(`...还有 ${d.fail_msgs.length - 3} 条失败`)
+        }
+      } else {
+        toast.error(res.data.message || '操作失败')
+        return
+      }
       setSelected(new Set())
       fetchShows()
     } catch (e: any) {
       toast.error(e?.response?.data?.message || '操作失败')
+    } finally {
+      setBatchLoading(false)
     }
   }
 
   const handleBatchIgnore = async () => {
+    setBatchLoading(true)
     const items = Array.from(selected).map((k) => {
       const [tmdbId, season] = k.split(':').map(Number)
       return { tmdb_id: tmdbId, season }
     })
     try {
       const res = await api.post('/shows/batch/ignore', { items })
-      toast.success(res.data.message || '批量忽略已提交')
+      if (res.data.success) {
+        toast.success(res.data.message || '批量忽略已提交')
+      } else {
+        toast.error(res.data.message || '操作失败')
+        return
+      }
       setSelected(new Set())
       fetchShows()
     } catch (e: any) {
       toast.error(e?.response?.data?.message || '操作失败')
+    } finally {
+      setBatchLoading(false)
     }
   }
 
@@ -231,6 +261,7 @@ export default function MissingPage() {
       {/* ========== 批量操作条 ========== */}
       <BatchActionBar
         count={selected.size}
+        loading={batchLoading}
         onSubscribe={handleBatchSubscribe}
         onIgnore={handleBatchIgnore}
         onClear={() => setSelected(new Set())}
