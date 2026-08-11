@@ -56,6 +56,7 @@ export default function SettingsPage() {
         auto_scan: settings.auto_scan === '1',
         scan_interval: parseInt(settings.scan_interval || '12'),
         auto_subscribe: settings.auto_subscribe === '1',
+        include_specials: settings.include_specials === '1',
       })
       if (res.data.success) toast.success('设置已保存')
       else toast.error(res.data.message || '保存失败')

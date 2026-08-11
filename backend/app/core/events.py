@@ -58,8 +58,9 @@ class EventBus:
 
     def unsubscribe(self, event_type: str, callback: Callable[[dict], Awaitable[None]]):
         """取消订阅（WebSocket 断开时调用）"""
-        if callback in self._subscribers[event_type]:
-            self._subscribers[event_type].remove(callback)
+        subs = self._subscribers.get(event_type, [])
+        if callback in subs:
+            subs.remove(callback)
 
     async def publish(self, event_type: str, data: dict):
         """

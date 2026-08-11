@@ -19,6 +19,7 @@ interface ShowItem {
   poster: string
   source_names: string[]
   ignore_entire: boolean
+  status: string
   seasons: Array<{
     season_number: number
     total_episodes: number
@@ -240,7 +241,7 @@ export default function MissingPage() {
                       if (selectedSource === 'full_missing') return s.status === 'full_missing'
                       if (selectedSource === 'complete') return s.status === 'complete'
                       if (selectedSource === 'ignored') return s.ignored
-                      if (selectedSource === 'error') return show.ignore_entire
+                      if (selectedSource === 'error') return show.status === 'error'
                       return s.status !== 'complete'
                     })
                     .map((season) => {

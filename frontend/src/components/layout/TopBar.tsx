@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Search, Loader2 } from 'lucide-react'
 import { useScanStore } from '@/stores/scanStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -17,6 +17,7 @@ const pageTitles: Record<string, string> = {
  */
 export function TopBar() {
   const location = useLocation()
+  const navigate = useNavigate()
   const dashboard = useScanStore((s) => s.dashboard)
   const { setShowSearch } = useUIStore()
 
@@ -43,11 +44,11 @@ export function TopBar() {
           </div>
         )}
 
-        {/* 搜索按钮（预留） */}
+        {/* 搜索按钮 → 跳转缺集列表搜索 */}
         <button
-          onClick={() => setShowSearch(true)}
+          onClick={() => navigate('/shows')}
           className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-          title="全局搜索 (Ctrl+K)"
+          title="搜索剧集"
         >
           <Search size={16} />
         </button>

@@ -181,6 +181,7 @@ async def list_shows(
             "source_ids": show.source_ids or [],
             "source_names": snames,
             "ignore_entire": show.ignore_entire,
+            "status": show.status,
             "seasons": seasons_data,
         })
 

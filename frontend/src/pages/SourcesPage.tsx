@@ -13,6 +13,7 @@ interface SourceItem {
   type: string
   enabled: boolean
   emby_url?: string
+  emby_api_key?: string
   last_scan_at?: string
   last_scan_status?: string
   last_error?: string
@@ -30,7 +31,9 @@ export default function SourcesPage() {
   const [showForm, setShowForm] = useState(false)
   const [formName, setFormName] = useState('')
   const [formPath, setFormPath] = useState('')
-  const [formType] = useState('filesystem')
+  const [formType, setFormType] = useState('filesystem')
+  const [formEmbyUrl, setFormEmbyUrl] = useState('')
+  const [formEmbyKey, setFormEmbyKey] = useState('')
 
   const fetch = useCallback(async () => {
     setLoading(true)
@@ -45,23 +48,35 @@ export default function SourcesPage() {
 
   useEffect(() => { fetch() }, [fetch])
 
+  const resetForm = () => {
+    setFormName('')
+    setFormPath('')
+    setFormType('filesystem')
+    setFormEmbyUrl('')
+    setFormEmbyKey('')
+  }
+
   const handleSave = async () => {
     if (!formName.trim() || !formPath.trim()) {
       toast.error('名称和路径不能为空')
       return
     }
+    const body: any = { name: formName, path: formPath, type: formType }
+    if (formType === 'emby') {
+      body.emby_url = formEmbyUrl
+      body.emby_api_key = formEmbyKey
+    }
     try {
       if (editItem) {
-        await api.put(`/sources/${editItem.id}`, { name: formName, path: formPath })
+        await api.put(`/sources/${editItem.id}`, body)
         toast.success('已更新')
       } else {
-        await api.post('/sources', { name: formName, path: formPath, type: formType })
+        await api.post('/sources', body)
         toast.success('已添加')
       }
       setShowForm(false)
       setEditItem(null)
-      setFormName('')
-      setFormPath('')
+      resetForm()
       fetch()
     } catch (e: any) {
       toast.error(e?.response?.data?.message || '操作失败')
@@ -103,13 +118,15 @@ export default function SourcesPage() {
     setEditItem(item)
     setFormName(item.name)
     setFormPath(item.path)
+    setFormType(item.type || 'filesystem')
+    setFormEmbyUrl(item.emby_url || '')
+    setFormEmbyKey(item.emby_api_key || '')
     setShowForm(true)
   }
 
   const openAdd = () => {
     setEditItem(null)
-    setFormName('')
-    setFormPath('')
+    resetForm()
     setShowForm(true)
   }
 
@@ -132,6 +149,26 @@ export default function SourcesPage() {
       {showForm && (
         <div className="rounded-lg border border-border bg-card p-4 space-y-3">
           <h3 className="text-sm font-medium">{editItem ? '编辑扫描源' : '添加扫描源'}</h3>
+
+          {/* 类型选择 */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground">类型：</span>
+            <button
+              onClick={() => setFormType('filesystem')}
+              className={cn('rounded px-3 py-1 border transition-colors',
+                formType === 'filesystem' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground')}
+            >
+              STRM 目录
+            </button>
+            <button
+              onClick={() => setFormType('emby')}
+              className={cn('rounded px-3 py-1 border transition-colors',
+                formType === 'emby' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground')}
+            >
+              Emby 服务器
+            </button>
+          </div>
+
           <div className="flex gap-3">
             <input
               value={formName}
@@ -142,10 +179,24 @@ export default function SourcesPage() {
             <input
               value={formPath}
               onChange={(e) => setFormPath(e.target.value)}
-              placeholder="容器内路径（如 '/media/139_video1'）"
+              placeholder={formType === 'filesystem' ? "容器内路径（如 '/media/139_video1'）" : "Emby 地址（如 'http://192.168.1.100:8096'）"}
               className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
             />
           </div>
+
+          {/* Emby 专用字段 */}
+          {formType === 'emby' && (
+            <div className="flex gap-3">
+              <input
+                value={formEmbyKey}
+                onChange={(e) => setFormEmbyKey(e.target.value)}
+                placeholder="Emby API Key（Emby 设置→高级→API密钥）"
+                className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
+                type="password"
+              />
+            </div>
+          )}
+
           <div className="flex gap-2">
             <button
               onClick={handleSave}
@@ -191,12 +242,19 @@ export default function SourcesPage() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{src.name}</span>
-                    <StatusBadge value={src.type === 'filesystem' ? 'running' : 'paused'} variant="scan" />
+                    <span className={cn('inline-flex items-center rounded border px-1.5 py-0.5 text-xs',
+                      src.type === 'emby' ? 'border-violet-500/30 text-violet-400 bg-violet-500/10' : 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
+                    )}>
+                      {src.type === 'emby' ? 'Emby' : 'STRM'}
+                    </span>
                     {!src.enabled && (
                       <span className="text-xs text-zinc-500">已禁用</span>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">{src.path}</p>
+                  {src.emby_url && (
+                    <p className="text-xs text-muted-foreground">Emby: {src.emby_url}</p>
+                  )}
                   {src.last_scan_at && (
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>上次扫描：{src.last_scan_at}</span>
@@ -212,32 +270,16 @@ export default function SourcesPage() {
                 </div>
 
                 <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleCheck(src.id)}
-                    className="rounded p-1.5 text-muted-foreground hover:text-foreground"
-                    title="测试连通性"
-                  >
+                  <button onClick={() => handleCheck(src.id)} className="rounded p-1.5 text-muted-foreground hover:text-foreground" title="测试连通性">
                     <CheckCircle size={14} />
                   </button>
-                  <button
-                    onClick={() => handleScan(src.id)}
-                    className="rounded p-1.5 text-muted-foreground hover:text-primary"
-                    title="扫描此源"
-                  >
+                  <button onClick={() => handleScan(src.id)} className="rounded p-1.5 text-muted-foreground hover:text-primary" title="扫描此源">
                     <Play size={14} />
                   </button>
-                  <button
-                    onClick={() => openEdit(src)}
-                    className="rounded p-1.5 text-muted-foreground hover:text-foreground"
-                    title="编辑"
-                  >
+                  <button onClick={() => openEdit(src)} className="rounded p-1.5 text-muted-foreground hover:text-foreground" title="编辑">
                     <Pencil size={14} />
                   </button>
-                  <button
-                    onClick={() => handleDelete(src.id, src.name)}
-                    className="rounded p-1.5 text-muted-foreground hover:text-red-400"
-                    title="删除"
-                  >
+                  <button onClick={() => handleDelete(src.id, src.name)} className="rounded p-1.5 text-muted-foreground hover:text-red-400" title="删除">
                     <Trash2 size={14} />
                   </button>
                 </div>

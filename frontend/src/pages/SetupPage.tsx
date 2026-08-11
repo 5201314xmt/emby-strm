@@ -55,8 +55,23 @@ export default function SetupPage() {
             <ShieldCheck size={28} className="text-primary" />
           </div>
           <h1 className="text-lg font-semibold">欢迎使用缺集管家</h1>
-          <p className="mt-1 text-sm text-muted-foreground">首次使用，请设置管理员密码</p>
+          <p className="mt-1 text-sm text-muted-foreground">第 1 步：设置管理员密码</p>
         </div>
+
+        {/* 步骤指示 */}
+        <div className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">1</span>
+          <span>密码</span>
+          <span className="text-border">→</span>
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent text-xs">2</span>
+          <span>配置</span>
+          <span className="text-border">→</span>
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent text-xs">3</span>
+          <span>扫描</span>
+        </div>
+        <p className="mb-3 text-xs text-muted-foreground">
+          设置密码后，请前往「设置」页填写 MoviePilot 地址和 Token，再到「扫描源」页添加 STRM 目录。
+        </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <input

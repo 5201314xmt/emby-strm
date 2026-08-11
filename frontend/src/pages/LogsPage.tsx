@@ -26,18 +26,24 @@ export default function LogsPage() {
   const [level, setLevel] = useState('')
   const [category, setCategory] = useState('')
   const [search, setSearch] = useState('')
-  const limit = 200
+  const [page, setPage] = useState(1)
+  const pageSize = 50
+  const totalPages = Math.ceil(total / pageSize)
 
-  const fetch = useCallback(async () => {
+  const fetch = useCallback(async (pageNum: number, append: boolean) => {
     setLoading(true)
     try {
-      const params: any = { limit }
+      const params: any = { page: pageNum, page_size: pageSize }
       if (level) params.level = level
       if (category) params.category = category
       if (search) params.search = search
       const res = await api.get('/logs', { params })
       if (res.data.success) {
-        setLogs(res.data.data.items)
+        if (append) {
+          setLogs(prev => [...prev, ...res.data.data.items])
+        } else {
+          setLogs(res.data.data.items)
+        }
         setTotal(res.data.data.total)
       }
     } catch (e) {
@@ -46,14 +52,18 @@ export default function LogsPage() {
     setLoading(false)
   }, [level, category, search])
 
-  useEffect(() => { fetch() }, [fetch])
+  useEffect(() => {
+    setPage(1)
+    fetch(1, false)
+  }, [fetch])
 
   const handleClear = async () => {
     if (!confirm('确定清空所有日志吗？')) return
     try {
       await api.delete('/logs')
       toast.success('日志已清空')
-      fetch()
+      setPage(1)
+      fetch(1, false)
     } catch (e) {
       toast.error('清空失败')
     }
@@ -96,7 +106,7 @@ export default function LogsPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && fetch()}
+            onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetch(1, false); } }}
             placeholder="搜索关键字..."
             className="rounded-md border border-border bg-background py-1.5 pl-8 pr-3 text-xs text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none w-48"
           />
@@ -150,6 +160,22 @@ export default function LogsPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* 加载更多 */}
+      {!loading && logs.length > 0 && page < totalPages && (
+        <div className="flex justify-center">
+          <button
+            onClick={() => {
+              const nextPage = page + 1
+              setPage(nextPage)
+              fetch(nextPage, true)
+            }}
+            className="rounded border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            加载更多（{page}/{totalPages}）
+          </button>
         </div>
       )}
     </div>

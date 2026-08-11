@@ -20,9 +20,11 @@ async def list_logs(
     category: Optional[str] = Query(None, description="日志分类：system|scan|subscribe|tmdb"),
     search: Optional[str] = Query(None, description="搜索关键字"),
     limit: int = Query(200, ge=1, le=1000, description="返回条数"),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(200, ge=1, le=1000, description="每页条数"),
     db: AsyncSession = Depends(get_db),
 ):
-    """获取日志列表（支持按级别/分类筛选 + 关键字搜索）"""
+    """获取日志列表（支持按级别/分类筛选 + 关键字搜索 + 分页）"""
     query = select(Log)
 
     if level:
@@ -33,7 +35,20 @@ async def list_logs(
         query = query.where(Log.message.ilike(f"%{search}%"))
 
     # 最新的排前面
-    query = query.order_by(Log.id.desc()).limit(limit)
+    query = query.order_by(Log.id.desc())
+
+    # 总数（包含搜索过滤）
+    count_query = select(func.count(Log.id))
+    if level:
+        count_query = count_query.where(Log.level == level.upper())
+    if category:
+        count_query = count_query.where(Log.category == category)
+    if search:
+        count_query = count_query.where(Log.message.ilike(f"%{search}%"))
+    total = (await db.execute(count_query)).scalar() or 0
+
+    # 分页
+    query = query.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(query)
     logs = result.scalars().all()
 
@@ -48,17 +63,12 @@ async def list_logs(
             "message": log.message,
         })
 
-    # 总数（包含搜索过滤）
-    count_query = select(func.count(Log.id))
-    if level:
-        count_query = count_query.where(Log.level == level.upper())
-    if category:
-        count_query = count_query.where(Log.category == category)
-    if search:
-        count_query = count_query.where(Log.message.ilike(f"%{search}%"))
-    total = (await db.execute(count_query)).scalar() or 0
-
-    return make_response(True, data={"total": total, "items": items})
+    return make_response(True, data={
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "items": items,
+    })
 
 
 @router.delete("")

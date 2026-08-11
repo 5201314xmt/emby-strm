@@ -64,23 +64,33 @@ async def scan_emby(emby_url: str, emby_api_key: str, source_id: int = 0) -> Sca
     user_id = admin_user["Id"]
     await add_log("INFO", "scan", f"Emby 用户: {admin_user.get('Name', user_id)}")
 
-    # 2. 获取所有剧集（Series）
-    series_list = await _emby_get(
-        emby_url, emby_api_key,
-        f"/emby/Users/{user_id}/Items",
-        params={
-            "IncludeItemTypes": "Series",
-            "Recursive": True,
-            "Fields": "ProviderIds",
-        },
-    )
-    if not series_list or "Items" not in series_list:
-        return result
+    # 2. 获取所有剧集（Series）—— 支持分页
+    all_series = []
+    start_index = 0
+    limit = 200
+    while True:
+        series_list = await _emby_get(
+            emby_url, emby_api_key,
+            f"/emby/Users/{user_id}/Items",
+            params={
+                "IncludeItemTypes": "Series",
+                "Recursive": True,
+                "Fields": "ProviderIds",
+                "StartIndex": start_index,
+                "Limit": limit,
+            },
+        )
+        if not series_list or "Items" not in series_list:
+            break
+        items = series_list["Items"]
+        all_series.extend(items)
+        if len(items) < limit:
+            break
+        start_index += limit
 
-    items = series_list["Items"]
-    await add_log("INFO", "scan", f"Emby 发现 {len(items)} 部剧集")
+    await add_log("INFO", "scan", f"Emby 发现 {len(all_series)} 部剧集")
 
-    for series in items:
+    for series in all_series:
         # 3. 获取 TMDB 编号（从 ProviderIds 中提取）
         provider_ids = series.get("ProviderIds", {})
         tmdb_id_str = provider_ids.get("Tmdb") or provider_ids.get("tmdb")
@@ -104,18 +114,32 @@ async def scan_emby(emby_url: str, emby_api_key: str, source_id: int = 0) -> Sca
         series_name = series.get("Name", "")
         series_id = series.get("Id", "")
 
-        # 4. 获取该剧集的所有 Episode
-        episodes = await _emby_get(
-            emby_url, emby_api_key,
-            f"/emby/Users/{user_id}/Items",
-            params={
-                "ParentId": series_id,
-                "IncludeItemTypes": "Episode",
-                "Recursive": True,
-                "Fields": "ParentIndexNumber,IndexNumber",
-            },
-        )
-        if not episodes or "Items" not in episodes:
+        # 4. 获取该剧集的所有 Episode —— 支持分页
+        all_episodes = []
+        ep_start = 0
+        ep_limit = 500
+        while True:
+            episodes = await _emby_get(
+                emby_url, emby_api_key,
+                f"/emby/Users/{user_id}/Items",
+                params={
+                    "ParentId": series_id,
+                    "IncludeItemTypes": "Episode",
+                    "Recursive": True,
+                    "Fields": "ParentIndexNumber,IndexNumber",
+                    "StartIndex": ep_start,
+                    "Limit": ep_limit,
+                },
+            )
+            if not episodes or "Items" not in episodes:
+                break
+            items = episodes["Items"]
+            all_episodes.extend(items)
+            if len(items) < ep_limit:
+                break
+            ep_start += ep_limit
+
+        if not all_episodes:
             continue
 
         show = result.shows.setdefault(tmdb_id, {
@@ -126,7 +150,7 @@ async def scan_emby(emby_url: str, emby_api_key: str, source_id: int = 0) -> Sca
         if not show["name"]:
             show["name"] = series_name
 
-        for ep in episodes["Items"]:
+        for ep in all_episodes:
             season_num = ep.get("ParentIndexNumber") or 1
             ep_num = ep.get("IndexNumber")
             if ep_num is None:

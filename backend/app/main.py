@@ -33,6 +33,28 @@ STATIC_DIR = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
 if not STATIC_DIR.exists():
     STATIC_DIR = Path("/app/frontend/dist")
 
+
+async def _recover_scan_jobs():
+    """恢复上次异常中断的扫描任务：将 running/paused 状态的 Job 标记为 failed"""
+    from datetime import datetime as _dt
+    from .core.database import AsyncSessionLocal as _AL
+    from .models.scan_job import ScanJob
+    from sqlalchemy import select
+    async with _AL() as db:
+        result = await db.execute(
+            select(ScanJob).where(ScanJob.status.in_(["running", "paused"]))
+        )
+        orphaned = result.scalars().all()
+        for job in orphaned:
+            job.status = "failed"
+            job.phase = "异常中断（容器重启）"
+            job.error_message = "扫描过程中容器重启，任务未完成"
+            job.completed_at = _dt.now()
+            print(f"[恢复] ScanJob #{job.id} 已标记为 failed（原: running/paused）")
+        if orphaned:
+            await db.commit()
+
+
 # ========== 应用生命周期 ==========
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -61,6 +83,10 @@ async def lifespan(app: FastAPI):
     from .core.app_state import init_clients
     init_clients()
     print("[启动] 客户端已初始化")
+
+    # 恢复上次意外中断的扫描任务（标记为失败）
+    await _recover_scan_jobs()
+    print("[启动] 扫描任务恢复检查完成")
 
     # 启动定时扫描调度器
     from .tasks.scheduler import start_scheduler, stop_scheduler
