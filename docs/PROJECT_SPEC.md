@@ -5,11 +5,19 @@
 
 | 字段 | 值 |
 |------|-----|
-| 版本 | 2.4.0 |
-| 最后更新 | 2026-08-11 |
+| 版本 | 2.4.1 |
+| 最后更新 | 2026-08-12 |
 | 维护者 | 产品负责人 / 架构师 |
 
 ## 变更记录 / Changelog
+
+### v2.4.1 (2026-08-12)
+- fix: 批量订阅/忽略返回422 — 路由顺序冲突 `/{tmdb_id}` 抢走 `/batch/...`
+  - 所有动态路由 `{tmdb_id}` 加 `:int` 类型限定
+  - Starlette 路由匹配: `/batch/subscribe` 不再被 int 路由拦截
+- fix: 前端批量订阅成功/失败判断缺失 — `res.data.success` 未检查
+- fix: BatchActionBar 增加 loading 态防重复点击
+- fix: 批量订阅失败详情逐条展示 (fail_msgs)
 
 ### v2.4.0 (2026-08-11)
 - fix: 设置页布尔开关反跳 — `auto_scan`/`auto_subscribe`/`include_specials` 归一化为 "1"/"0"
